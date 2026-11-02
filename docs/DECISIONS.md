@@ -16,60 +16,56 @@
 | **ADR-005** | Pivot to Cloud-Hosted Website Quality & Intelligence Platform | 2026-11-03 | `ACCEPTED` |
 | **ADR-006** | Zero-Spend Architecture (₹0 Budget) using Free-Tier Cloud Services | 2026-11-03 | `ACCEPTED` |
 | **ADR-007** | Strict Three-Tier Authorization Model (Public vs Verified vs Authenticated) | 2026-11-03 | `ACCEPTED` |
+| **ADR-008** | Two-Tier Cloud Inspection Pipeline (API-Driven + Ephemeral Worker) | 2026-11-03 | `PROPOSED` |
+| **ADR-009** | Safe Authentication Verification via OAuth Contract & Route Probing | 2026-11-03 | `PROPOSED` |
+| **ADR-010** | Tiered Evidence Retention Strategy for 500MB Free Database Cap | 2026-11-03 | `PROPOSED` |
 
 ---
 
-## ADR-001: Documentation Governance as a Continuous Engineering Requirement
-*See initial baseline.* Enforces continuous synchronization of all documentation with actual repository reality.
-
----
-
-## ADR-002: Deterministic Mathematical Foundation for RQI Scoring
-*Updated context.* RQI (Release Quality Index) is a 0–100 score evaluating website quality across Performance, Accessibility, Security/Headers/SSL, Functional Integrity (e.g. Console errors, broken links, auth flows), and SEO/Best Practices. AI provides evidence-backed explanations but cannot fabricate or arbitrarily override the quantitative index.
-
----
-
-## ADR-003: Multi-Audience Synthesis Separation
-*Updated context.* Audit reports generate distinct perspectives: Technical/Engineering (Lighthouse metrics, console traces, network payload errors), Product (readiness, UX usability, broken user journeys), and Executive (overall RQI score, release risk verdict).
-
----
-
-## ADR-004: Cloud Worker Architecture for Dynamic Smoke Verification
-*Updated context.* All inspections run entirely in cloud-hosted environments. No machine-local execution, local CLI, or local browser instances.
-
----
-
-## ADR-005: Pivot to Cloud-Hosted Website Quality & Intelligence Platform
+## ADR-008: Two-Tier Cloud Inspection Pipeline (API-Driven + Ephemeral Worker)
 
 ### Context
-Initial exploration considered Git diff review. The confirmed core product requirement is a **cloud-based website quality auditing and intelligence platform** where users register websites (including `.vercel.app` domains), run automated cloud inspections, track historical quality, and query an evidence-backed conversational AI assistant.
+Running full headless Chromium (`@sparticuz/chromium`) inside a Vercel Hobby serverless function introduces severe risks: 50MB uncompressed size overhead, 4–8s cold boot times, and inevitable timeouts against Vercel's 10-second serverless execution ceiling.
 
 ### Decision
-Pivot all architecture, models, workflows, and specifications to cloud-based website auditing. Git/source-code integration is optional and deferred.
+1. **Tier 1 (Public Scan)**: Executes entirely via Google PageSpeed Insights REST API + serverless HTTP fetch/TLS probes. Takes 2–4s total, completely avoiding headless browser overhead on Vercel.
+2. **Tier 2 (Deep Checks) & Tier 3 (Auth Checks)**: Utilizes a decoupled execution runner (e.g., GitHub Actions free runner with 2,000 free minutes/month or an external serverless worker with a higher execution budget), triggering asynchronously via webhook/dispatch and reporting back upon completion.
+
+### Consequences
+- **Positive**: Eliminates HTTP 504 gateway timeouts on Vercel; stays strictly ₹0; maximizes reliability.
+- **Trade-off**: Requires asynchronous polling or webhook callbacks for Tier 2/3 instead of a single synchronous HTTP request.
 
 ---
 
-## ADR-006: Zero-Spend Architecture (₹0 Budget) using Free-Tier Cloud Services
+## ADR-009: Safe Authentication Verification via OAuth Contract & Route Probing
 
 ### Context
-Target budget is explicitly ₹0. The platform cannot rely on paid infrastructure or assume unlimited free quotas.
+Google's security infrastructure aggressively blocks automated headless browsers on `accounts.google.com` with anti-bot detection ("This browser or app may not be secure"). Attempting to automate real password entry into Google accounts will consistently fail and violates Google Terms of Service. Furthermore, collecting real production passwords or user session cookies creates unacceptable security liabilities.
 
 ### Decision
-Leverage verified generous free-tier services:
-- **Hosting & Compute**: Vercel (Hobby plan) or Cloudflare Pages.
-- **Database & Auth**: Supabase (Free tier: 500MB DB, Google OAuth, Row Level Security) or Neon Serverless Postgres.
-- **AI Model & Embeddings**: Google Gemini API (Free tier: 15 RPM for Gemini 1.5 Flash / 2.0 Flash) or Groq free tier.
-- **Auditing Engine**: Cloud-executed PageSpeed Insights API (Free Google API quota: 25,000 queries/day) combined with serverless worker HTTP/SSL/header inspectors, and serverless Playwright/Puppeteer workers within free execution budgets.
+Implement **OAuth Contract & Route Probing**:
+1. **Client-Side SDK & Button Discovery**: Verify the presence of Google Identity Services (`https://accounts.google.com/gsi/client`) or valid OAuth buttons in the DOM.
+2. **OAuth Contract Validation**: Inspect the OAuth initialization URL: assert valid `client_id`, `redirect_uri`, `response_type=code`, and approved `scope` parameters.
+3. **Provider Endpoint Pre-flight**: Perform a server-side request to Google's authorization endpoint with the target client ID to confirm Google does NOT return `redirect_uri_mismatch` or `invalid_client`.
+4. **Protected Route Probing**: Allow the user to specify an authenticated route (e.g. `/dashboard` or `/api/user`) and assert that unauthenticated requests return HTTP 401/403/Redirect, while test-session requests return HTTP 200.
+
+### Consequences
+- **Positive**: 100% technically reliable, complies with Google Terms of Service, never requires storing sensitive production passwords.
+- **Trade-off**: Evaluates the contract, redirect validity, and session boundary rather than performing an end-to-end credential submission into Google's UI.
 
 ---
 
-## ADR-007: Strict Three-Tier Authorization Model (Public vs Verified vs Authenticated)
+## ADR-010: Tiered Evidence Retention Strategy for 500MB Free Database Cap
 
 ### Context
-Allowing arbitrary users to input any URL and run deep or intrusive functional/authenticated checks poses severe legal, ethical, and denial-of-service risks against third-party websites.
+Supabase Free Tier provides 500MB of PostgreSQL storage. A single Lighthouse audit JSON payload with base64 screenshots and full trace arrays can exceed 2–5MB. Storing 100 audits would consume the entire database quota.
 
 ### Decision
-Enforce a 3-tier testing boundary:
-1. **Tier 1 (Public Inspection)**: Non-intrusive public scans (HTTP headers, SSL certificate, Lighthouse/Core Web Vitals, public HTML accessibility, robots.txt). Available for any valid public URL.
-2. **Tier 2 (Verified Ownership Inspection)**: Deep crawl, broken link checks, form discovery, load stress checks. Requires proof of ownership via DNS TXT record or HTML meta tag / verification file (e.g., `/.well-known/releaselens-verify.txt`).
-3. **Tier 3 (Authenticated Testing)**: Testing behind login (e.g., verifying Google Sign-In or username/password flows). Strictly requires verified ownership + explicitly configured test credentials in encrypted storage.
+Implement **Tiered Evidence Retention**:
+1. **Permanent Storage**: Metric summaries, RQI score breakdowns, deduction logs, deduplicated console error traces, and chat message history (average <5KB per audit).
+2. **Stripped Payloads**: Raw Lighthouse screenshots (`data:image/...`) and verbose network timings are stripped prior to persistence.
+3. **Ephemeral Cache**: Full JSON audit payloads are retained for 7 days, after which an automated cron cleans up raw JSON fields while preserving the RQI score and metric records permanently.
+
+### Consequences
+- **Positive**: Enables storing tens of thousands of release audits within the 500MB limit indefinitely.
+- **Trade-off**: Granular raw network waterfalls older than 7 days are pruned.
