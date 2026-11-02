@@ -1,31 +1,53 @@
-# Pre-Implementation Doubt Register — ReleaseLens
+# Master Doubt & Workflow Register — ReleaseLens
 
-> **Status**: `ACTIVE DISCOVERY & SELF-AUDIT`  
-> **Rule**: Document every ambiguity, assumption, and risk. No implementation begins until decision-critical doubts are resolved.  
-> **Last Updated**: 2026-11-03  
-
----
-
-## 1. Classification Overview
-
-Doubts are partitioned into three actionable groups:
-- **Group 1: Must Ask the User** (Core product direction, business workflows, scope boundaries, user preferences).
-- **Group 2: Agent Must Investigate** (Technical architecture, API limits, security controls, mathematical scoring models).
-- **Group 3: Must Validate Experimentally** (Proof-of-concept benchmarks, cold starts, free-tier serverless execution limits).
+> **Status**: `ACTIVE DISCOVERY & ARCHITECTURAL SELF-AUDIT (ROUND 2)`  
+> **Last Synchronized**: 2026-11-03  
 
 ---
 
-## 2. Master Doubt Register
+## 1. Classification Groups
 
-| ID | Category | Question / Uncertainty | Why It Matters | Risk Level | Type | Recommended Default | Alternatives Considered | Consequence of Wrong Choice | Status |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **DBT-001** | Product | What is the primary product identity: a pre-release gating tool, an ongoing site monitor, or an on-demand audit scanner? | Shapes whether we build continuous scheduled crons vs on-demand release candidate audits. | High | Group 1 | **On-demand release candidate quality auditor** with historical trendlines. Scheduled crons consume heavy free quotas. | 1. 24/7 uptime monitor. 2. Full CI/CD gating bot. | Rapid free-tier quota exhaustion; unfocused product UX. | `AWAITING USER` |
-| **DBT-002** | Auth Test | How can we reliably test Google Sign-In when Google aggressively blocks headless browser automation on `accounts.google.com`? | Claiming we test Google login end-to-end without disclosing Google bot defenses will cause test failures or false claims. | Critical | Group 2 / Group 1 | **OAuth Pre-Flight & Contract Verification**: Inspect Google Identity Services SDK, validate Client ID, assert OAuth URL parameters (`redirect_uri`, `scope`), and test callback endpoint response. | 1. Attempt Playwright login into real Google account (will fail with Google anti-bot). 2. Require user to paste production session cookie (security hazard). | Broken tests, security vulnerabilities, or false positive/negative reports. | `INVESTIGATED` |
-| **DBT-003** | Cloud Infra | How can we execute browser-based inspections at ₹0 when Vercel Hobby serverless functions have a 10s timeout and tight RAM limits? | Bundling Chromium (`@sparticuz/chromium`) on Vercel Hobby takes 4–6s just to cold boot, leaving <4s to execute a crawl before hard timeout. | Critical | Group 2 | **Two-tier cloud execution**: 1. Google PageSpeed Insights REST API (Free 25k/day) for Core Web Vitals, accessibility, console errors, and performance. 2. GitHub Actions free runner (2,000 min/mo) or lightweight serverless HTTP crawler for deep checks. | 1. Run Chromium inside Vercel Serverless Function (timeout disaster). 2. Paid Browserbase/Browserless ($20+/mo - violates ₹0). | Frequent function timeouts (HTTP 504), broken scans, zero reliability. | `INVESTIGATED` |
-| **DBT-004** | Security | How do we prevent users from weaponizing ReleaseLens to perform SSRF or launch denial-of-service crawls on third-party sites? | Submitting `http://169.254.169.254` or scanning an unauthorized domain exposes cloud infrastructure and creates legal liability. | Critical | Group 2 | **Strict 3-Tier Security + SSRF Filtering**: Disallow loopback, private RFC-1918 IPs, and cloud metadata IPs. Restrict Tier 2/3 active tests to verified domains via `<meta>` or `.well-known` file. | 1. Trust URL input. 2. Require DNS TXT verification only (too slow for `*.vercel.app` preview URLs). | SSRF cloud compromise, IP blacklisting, legal cease-and-desist notices. | `RESOLVED (PROPOSED)` |
-| **DBT-005** | Ownership | How do users verify ownership of preview environments like `my-app-git-feat.vercel.app` where DNS access does not exist? | Developers deploy ephemeral previews on Vercel without custom domain DNS access. | High | Group 1 | Support **HTML `<meta>` tag** or **`/.well-known/releaselens-verify.txt`** in the repository's `public/` folder, allowing instantaneous verification on Vercel previews. | 1. DNS TXT only (fails on vercel.app). 2. GitHub OAuth repo ownership (adds unwanted source code requirement). | Users cannot test staging/preview URLs, crippling the core use case. | `RECOMMENDED` |
-| **DBT-006** | RQI Scoring | How should missing or unexecuted tests affect the RQI score without unfairly penalizing the site or creating false confidence? | If an audit only runs Tier 1, should RQI be 100% or explicitly labeled as partial coverage? | High | Group 2 | **Normalized Coverage-Weighted Scoring**: Each tier has a defined maximum confidence score. Tier 1 gives a "Public RQI" (max confidence 60%), while verified + auth tests unlock the full 100% score envelope. Clearly display *Coverage Completeness %*. | 1. Assume unrun tests passed (dangerous false positive). 2. Score unrun tests as 0 (unfair punishment). | Misleading release readiness scores. | `PROPOSED` |
-| **DBT-007** | AI Grounding | How do we guarantee the conversational AI assistant never invents test outcomes or hallucinations? | If user asks "Did login work?", LLM must not guess or answer based on general knowledge. | Critical | Group 2 | **Strict Bounded Context & Fact Extraction**: The API queries the exact structured `AUDIT_EVIDENCE` table from Postgres, compiles a deterministic JSON evidence block, and uses a hard prompt constraint: *"Answer strictly from provided evidence. If test status is NOT RUN, state 'Test not performed'."* | 1. Free-form RAG on text summaries. 2. Letting LLM browse the web live. | Hallucinated test passes, loss of user trust. | `RESOLVED (PROPOSED)` |
-| **DBT-008** | Cloud DB | What happens when Supabase free tier pauses after 7 days of inactivity? | Free Supabase projects pause if no queries occur for 7 days. | Medium | Group 2 | Keep-alive ping mechanism via scheduled GitHub Action or serverless health check, or automatic graceful wake-up handling. | 1. Paid database ($25/mo - violates ₹0). 2. Local database (violates zero-local-machine rule). | Intermittent connection errors when resuming project after inactivity. | `INVESTIGATED` |
-| **DBT-009** | Rate Limits | How do we handle Google PageSpeed API and Gemini API rate limits on free tier without failing user audits? | PageSpeed has 25k req/day; Gemini Free has 15 RPM. Concurrent audits could spike limits. | Medium | Group 2 | **In-memory debounce & client queue**: Queue consecutive audit requests; cache recent domain audits for 10 minutes to prevent duplicate hits. | 1. Drop requests on 429. 2. Buy paid quotas. | 429 Throttling errors during multi-site audits. | `INVESTIGATED` |
-| **DBT-010** | Retention | How much historical audit evidence can we store in Supabase free tier (500MB storage limit)? | Storing raw HTML DOM snapshots and full network waterfalls will exhaust 500MB in a few hundred audits. | High | Group 2 | **Tiered Data Pruning**: Store summary metrics, RQI breakdown, and deduplicated error traces indefinitely. Retain raw Lighthouse JSON payloads for 7 days or strip heavy base64 screenshots. | 1. Store full raw JSON forever (exhausts 500MB rapidly). 2. Store no history (destroys release intelligence trendlines). | Database storage exhaustion, leading to account suspension. | `PROPOSED` |
+- **Group 1: Must Ask User** (Product direction, MVP workflow boundaries, business models).
+- **Group 2: Agent Investigated & Resolved** (Technical feasibility, security architecture, mathematical scoring formulas).
+- **Group 3: Validate Experimentally** (Benchmarks, execution latency, free-tier edge cases).
+
+---
+
+## 2. Technical & Architectural Doubts (Updated)
+
+| ID | Category | Question / Uncertainty | Risk | Type | Resolution / Decision | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **DBT-001** | Product | On-demand release audits vs continuous monitoring? | High | Group 1 | On-demand release candidate audits with historical trendlines. Background crons burn free quotas. | `AWAITING USER` |
+| **DBT-002** | Auth Test | Realistic verification of Google Sign-In without violating Google ToS or hitting anti-bot blocks? | Critical | Group 2 | **7-Level OAuth Probing**: Verify GSI SDK presence, Client ID syntax, authorization redirect URL params, callback route status (400 vs 500), and protected route auth gates. | `RESOLVED (ADR-009)` |
+| **DBT-003** | Cloud Infra | How to run headless browser crawls without hitting Vercel 10s timeouts? | Critical | Group 2 | **Hybrid Execution**: Tier 1 on Vercel Serverless (PageSpeed API + native TLS); Tier 2/3 dispatched to GitHub Actions free runner (2,000 min/mo, 7GB RAM). | `RESOLVED (ADR-011)` |
+| **DBT-004** | Security | Comprehensive SSRF & DNS rebinding defense? | Critical | Group 2 | **5-Layer Defense-in-Depth**: Protocol filter (80/443 only), full DNS check, IP blacklisting (RFC 1918 + metadata), socket-level IP pinning, and manual redirect inspection (max 5 hops). | `RESOLVED (ADR-012)` |
+| **DBT-005** | Ownership | Preview URL verification on `*.vercel.app` without DNS access? | High | Group 1 | Support HTML `<meta>` tag and `/.well-known/releaselens-verify.txt` in public folder; DNS TXT available for apex domains. Challenges expire after 7 days; origin matching enforced. | `RECOMMENDED` |
+| **DBT-006** | RQI Scoring | Preventing incomplete scans from generating misleading high scores? | High | Group 2 | **Dual-Metric Model**: Quality Score ($S_{\text{tested}}$) + Audit Coverage ($C_{\text{audit}}$) + Release Verdict (`VERIFIED_READY`, `PROVISIONAL_PASS`, `REVIEW_REQUIRED`, `RELEASE_BLOCKED`). | `RESOLVED (ADR-013)` |
+| **DBT-007** | AI Assistant | Ensuring AI assistant never hallucinates test outcomes? | Critical | Group 2 | Strict bounded context: AI receives structured JSON evidence only. Negative assertion rule: missing/unrun checks explicitly state "Test NOT RUN". | `RESOLVED (ADR-007)` |
+| **DBT-008** | Cloud DB | Supabase 7-day inactivity pause mitigation without artificial keep-alives? | Medium | Group 2 | Graceful handling: client health-check detects paused database state and displays a clear "Database waking up, retrying..." banner rather than unhandled crash. | `RESOLVED` |
+| **DBT-009** | PageSpeed | Incomplete coverage & lab vs field data limitations in PageSpeed API? | Medium | Group 2 | PageSpeed only covers lab performance/a11y/SEO. CrUX field data is null on staging. We explicitly label PageSpeed as "Synthetic Lab Metrics" and combine it with our own native security header & console crawlers. | `RESOLVED` |
+| **DBT-010** | Retention | Managing 500MB Supabase storage limit? | High | Group 2 | Tiered pruning: Permanent metrics & RQI (<5KB/run). Base64 screenshots stripped; raw Lighthouse JSON pruned after 7 days. | `RESOLVED (ADR-010)` |
+
+---
+
+## 3. Missing Product Workflows Evaluation Matrix
+
+| Workflow | Proposed Phase | Classification | Handling Strategy |
+| :--- | :--- | :--- | :--- |
+| **1. Multiple users managing one website** | Post-MVP (v0.2.0) | `LATER ROADMAP` | Single user ownership for MVP. Data model includes `user_id`; multi-user organization RBAC deferred to avoid premature complexity. |
+| **2. Ownership transfer & revocation** | MVP (v0.1.0) | `MUST-HAVE` | If verification token is removed during periodic check, website status automatically downgrades from `VERIFIED` to `PUBLIC`. Owner can delete site. |
+| **3. Production vs Preview environments** | MVP (v0.1.0) | `MUST-HAVE` | Websites can be tagged as `PRODUCTION` or `PREVIEW` (e.g. `*.vercel.app`). Delta comparisons pair runs within the same environment tag. |
+| **4. Audit cancellation** | MVP (v0.1.0) | `MUST-HAVE` | User can cancel queued or running audits via UI; sets audit status to `CANCELLED` and drops runner dispatch. |
+| **5. Job retries & duplicate prevention** | MVP (v0.1.0) | `MUST-HAVE` | Idempotency key per audit trigger. Prevents duplicate simultaneous runs against the same target URL within a 60-second window. |
+| **6. Partial audit failures** | MVP (v0.1.0) | `MUST-HAVE` | Handled via Dual-Metric RQI: failed/inconclusive checks reduce $C_{\text{audit}}$ coverage rather than crashing the entire evaluation. |
+| **7. Timestamps & deployment identity** | MVP (v0.1.0) | `MUST-HAVE` | Every audit records exact UTC timestamp, target URL, and optional deployment label (e.g. Git commit SHA or Vercel deployment URL). |
+| **8. Incompatible test configurations** | MVP (v0.1.0) | `MUST-HAVE` | Comparisons between different tiers (e.g. Tier 1 vs Tier 3) display a compatibility banner: *"Only Tier 1 common metrics compared"*. |
+| **9. Report export & sharing** | MVP (v0.1.0) | `MUST-HAVE` | Export audit summary as Markdown, JSON, or copyable public permalink (read-only snapshot). |
+| **10. Evidence retention & deletion** | MVP (v0.1.0) | `MUST-HAVE` | User can manually delete individual audit runs or entire website histories with permanent database cascade. |
+| **11. User notifications** | Post-MVP (v0.2.0) | `LATER ROADMAP` | In-app visual alerts for MVP; email/Slack notifications deferred to avoid requiring third-party email API keys. |
+| **12. API & webhook access** | Post-MVP (v0.2.0) | `LATER ROADMAP` | Webhook triggers for CI/CD pipeline gating deferred to v0.2.0. |
+| **13. AI usage quotas** | MVP (v0.1.0) | `MUST-HAVE` | Per-user rate limit: 10 AI assistant queries per hour to prevent exhausting Google Gemini free-tier RPM/RPD limits. |
+| **14. Provider outage handling** | MVP (v0.1.0) | `MUST-HAVE` | If PageSpeed API returns 429/503, the audit records `PageSpeed: UNAVAILABLE` and computes provisional RQI with reduced coverage. |
+| **15. User account deletion** | MVP (v0.1.0) | `MUST-HAVE` | "Delete My Account" button triggers GDPR/privacy cascade: deletes all owned websites, audit records, and chat history. |
+| **16. Project deletion** | MVP (v0.1.0) | `MUST-HAVE` | Deleting a website cascades and removes all associated verification tokens, audit runs, and chat sessions. |
+| **17. Audit tamper resistance** | MVP (v0.1.0) | `MUST-HAVE` | Audit records are immutable once `status = COMPLETED`. HMAC signature included on exported JSON reports. |

@@ -1,32 +1,57 @@
-# Cloud Worker & Browser Inspection Architecture — ReleaseLens
+# Cloud Worker & Execution Architecture — ReleaseLens
 
-> **Document Status**: `SYNCHRONIZED`  
+> **Document Status**: `SYNCHRONIZED` / `REVISED SPECIFICATION`  
 > **Last Synchronized**: 2026-11-03  
 
 ---
 
-## 1. Cloud Execution Mandate
+## 1. Cloud Provider Limits & Execution Feasibility
 
-In strict accordance with project requirements:
-- **No local execution**: No Playwright or Puppeteer running on the user's personal development machine.
-- **Zero Cost (₹0 Budget)**: Inspection jobs run in cloud environments utilizing free-tier compute:
-  - **Tier 1 (Public)**: Direct API calls to Google PageSpeed Insights REST API + serverless Edge/Node HTTP workers (Vercel serverless functions).
-  - **Tier 2 & 3 (Deep & Authenticated)**: Ephemeral cloud browser workers (e.g. `@sparticuz/chromium` in serverless function or free-tier container runner) bounded by strict 30-45s execution timeouts.
+| Provider / Runtime | Free-Tier Limits | Browser Binary Support | Cold Start | Timeout Limit | Feasibility for Headless Browser |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Vercel Serverless (Hobby)** | 100k invocations/mo, 100 concurrent reqs | Compressing Chromium (`@sparticuz/chromium`) requires extracting brotli to `/tmp` (~50MB) | 4–8 seconds | 10s default (configurable to 60s) | **High Risk**: Prone to 504 timeouts on slow previews; Chromium cold start eats most of the execution budget. |
+| **GitHub Actions Runner** | 2,000 Linux runner minutes/month (free on private, unlimited on public) | Full real Google Chrome & Playwright pre-installed in Ubuntu VM | 2–5 seconds queue time | 6 hours (we cap at 45s) | **Excellent**: Dedicated VM (2 vCPU, 7GB RAM), zero timeout danger, true OS isolation, 100% free. |
+| **Cloudflare Workers** | 100k req/day free | Browser Rendering API requires paid plan ($5/mo) | N/A | 30s | **Ineligible**: Violates ₹0 budget requirement. |
+| **Koyeb / Render Free Tier** | 1 web service, 512MB RAM | Docker container with Chromium | 30–50s (sleep on idle) | 30s | **Poor**: 512MB RAM causes Chrome out-of-memory crashes; high latency sleep wake-ups. |
 
 ---
 
-## 2. Worker Lifecycle & Evidence Ingestion
+## 2. Recommended Hybrid Execution Architecture
+
+ReleaseLens implements a decoupled, two-tier execution pipeline:
 
 ```mermaid
 flowchart TD
-    A["User triggers Audit (Tier 1/2/3)"] --> B["API checks Ownership Tier & Rate Limits"]
-    B --> C["Dispatch Cloud Inspection Job"]
-    C --> D1["Worker 1: Google PageSpeed API (Vitals & a11y)"]
-    C --> D2["Worker 2: Serverless HTTP/TLS Inspector (Headers & SSL)"]
-    C --> D3["Worker 3: Cloud Headless Worker (Console errors & Auth flow)"]
-    D1 --> E["Raw Evidence Collector"]
-    D2 --> E
-    D3 --> E
-    E --> F["RQI Calculation Engine"]
-    F --> G["Persist Run & Evidence in Supabase DB"]
+    User["User Triggers Audit"] --> API["ReleaseLens Next.js API (Vercel)"]
+    API --> Decision{"Audit Tier?"}
+    
+    Decision -->|"Tier 1 (Public Scan)"| VercelJob["Vercel Serverless Worker"]
+    subgraph Fast Serverless Execution [2–4 seconds total]
+        VercelJob --> P1["Google PageSpeed Insights REST API"]
+        VercelJob --> P2["Native TLS / SSL Certificate Inspector"]
+        VercelJob --> P3["Security Header & Redirect Inspector"]
+    end
+    
+    Decision -->|"Tier 2 (Deep) / Tier 3 (Auth)"| GHAction["GitHub Actions Ephemeral Runner"]
+    subgraph Isolated Ephemeral Runner [20–35 seconds total]
+        GHAction --> B1["Spin up Ubuntu VM (2 vCPU, 7GB RAM)"]
+        B1 --> B2["Run Headless Playwright Crawl (Max 15 pages)"]
+        B2 --> B3["Capture Console Errors, Network Drops & OAuth Contract"]
+        B3 --> B4["POST Encrypted Evidence Webhook to ReleaseLens API"]
+    end
+
+    P1 --> Aggregate["RQI Calculation Engine"]
+    P2 --> Aggregate
+    P3 --> Aggregate
+    B4 --> Aggregate
+    Aggregate --> Supabase[("Supabase DB (Postgres)")]
 ```
+
+---
+
+## 3. Experimental Validation Plan
+
+To validate this hybrid model prior to production rollout:
+1. **Benchmark Vercel Serverless Probes**: Verify that native TLS inspection and PageSpeed REST API calls complete within 3 seconds across 20 distinct domains.
+2. **Benchmark GitHub Actions Dispatch**: Test latency from API `repository_dispatch` trigger to webhook callback arrival. Expected: 18–30 seconds.
+3. **SSRF Rebinding Verification**: Run automated regression test against a local DNS rebinding test server (`rbndr.us`) to confirm our socket-pinning agent blocks the connection before socket write.
