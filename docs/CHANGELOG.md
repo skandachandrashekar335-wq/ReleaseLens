@@ -7,8 +7,10 @@ All notable changes to the ReleaseLens project will be documented in this file.
 ## [Unreleased] - 2026-11-03
 
 ### Changed
-- Pivoted project specification and architecture from Git diff review to **Cloud-Based Website Quality Auditing & Intelligence Platform** based on user clarification (ADR-005).
-- Enforced hard architectural constraints: 100% cloud-hosted, zero machine-local dependencies, ₹0 budget using verified free-tier services (ADR-006).
-- Formulated strict three-tier authorization model: Tier 1 (Public Scan), Tier 2 (Verified Ownership), Tier 3 (Authenticated Testing) (ADR-007).
-- Updated RQI (ReleaseLens Quality Index) formula for website health (Security, Core Web Vitals, Functional/Console Integrity, Accessibility, SEO).
-- Synchronized all documentation across `docs/` and `README.md`.
+- Re-evaluated and rejected GitHub Actions as a cloud browser worker due to AUP multi-tenant SaaS compliance and minute-rounding costs (ADR-011 rejected, replaced by ADR-014).
+- Established native serverless link crawler for Tier 2 and decoupled Google Cloud Run ephemeral container runner for Tier 3 headless execution (ADR-014).
+- Hardened browser network security using Playwright universal route interception (`page.route('**/*')`) for anti-rebind, subresource IP pinning, and egress restriction (ADR-015).
+- Replaced flawed multiplicative RQI coverage formula with Tripartite RQI Governance: Independent Hard Release Gates + Tested Quality Score + Audit Coverage % (ADR-016).
+- Formulated secret scrubbing pipeline and delimited prompt isolation for AI assistant (ADR-017).
+- Created comprehensive [docs/ARCHITECTURE_VALIDATION.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/ARCHITECTURE_VALIDATION.md).
+- Updated doubt register and synchronized all architecture and scoring specifications.
