@@ -1,44 +1,32 @@
-# Cloud Worker & Browser Isolation Design — ReleaseLens
+# Cloud Worker & Browser Inspection Architecture — ReleaseLens
 
-> **Document Status**: `INITIAL BASELINE` / `PROPOSED`  
+> **Document Status**: `SYNCHRONIZED`  
 > **Last Synchronized**: 2026-11-03  
 
 ---
 
-## 1. Overview & Objective
+## 1. Cloud Execution Mandate
 
-Release verification often requires executing dynamic checks that static diff analysis cannot confirm:
-- Verifying that critical user journeys (e.g. login, payment flow, dashboard load) do not crash in a real browser.
-- Running smoke tests against staging endpoints.
-- Validating asset bundle sizes and performance regressions.
-
-The **ReleaseLens Cloud Worker** is an isolated execution harness designed to safely run automated verification passes without endangering the host infrastructure.
+In strict accordance with project requirements:
+- **No local execution**: No Playwright or Puppeteer running on the user's personal development machine.
+- **Zero Cost (₹0 Budget)**: Inspection jobs run in cloud environments utilizing free-tier compute:
+  - **Tier 1 (Public)**: Direct API calls to Google PageSpeed Insights REST API + serverless Edge/Node HTTP workers (Vercel serverless functions).
+  - **Tier 2 & 3 (Deep & Authenticated)**: Ephemeral cloud browser workers (e.g. `@sparticuz/chromium` in serverless function or free-tier container runner) bounded by strict 30-45s execution timeouts.
 
 ---
 
-## 2. Worker Architecture & Sandboxing
+## 2. Worker Lifecycle & Evidence Ingestion
 
 ```mermaid
 flowchart TD
-    A["API Service"] -->|"Dispatch Verification Task"| B["Worker Queue / Dispatcher"]
-    B --> C["Isolated Container / Sandbox Runner"]
-    subgraph Sandbox Container
-        D["Resource Constraints (CPU / RAM limits)"]
-        E["Restricted Network Bridge"]
-        F["Headless Browser Engine (Playwright / Puppeteer)"]
-    end
-    C --> D
-    D --> E
-    E --> F
-    F -->|"Emit Trace, Logs, Screenshots"| G["Worker Verification Ingestion"]
-    G -->|"Feed Evidence to RQI Engine"| H["RQI Scoring Calculator"]
+    A["User triggers Audit (Tier 1/2/3)"] --> B["API checks Ownership Tier & Rate Limits"]
+    B --> C["Dispatch Cloud Inspection Job"]
+    C --> D1["Worker 1: Google PageSpeed API (Vitals & a11y)"]
+    C --> D2["Worker 2: Serverless HTTP/TLS Inspector (Headers & SSL)"]
+    C --> D3["Worker 3: Cloud Headless Worker (Console errors & Auth flow)"]
+    D1 --> E["Raw Evidence Collector"]
+    D2 --> E
+    D3 --> E
+    E --> F["RQI Calculation Engine"]
+    F --> G["Persist Run & Evidence in Supabase DB"]
 ```
-
----
-
-## 3. Security & Isolation Controls
-
-1. **Zero Host Filesystem Access**: Workers operate inside ephemeral container environments or sandboxed node processes with zero write permissions to the host OS.
-2. **Strict Timeouts**: Default execution budget is capped at 60 seconds per verification step to prevent runaway execution loops.
-3. **Network Allowlisting**: Outbound requests from browser workers are restricted strictly to targeted staging URLs or local test harnesses.
-4. **Secret Redaction**: Any environment tokens or secrets passed into the worker context are masked in output logs and traces.

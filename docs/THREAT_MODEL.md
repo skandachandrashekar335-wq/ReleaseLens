@@ -1,28 +1,17 @@
-# Threat Model (STRIDE) — ReleaseLens
+# STRIDE Threat Model — ReleaseLens
 
-> **Document Status**: `INITIAL BASELINE` / `PROPOSED`  
+> **Document Status**: `SYNCHRONIZED`  
 > **Last Synchronized**: 2026-11-03  
 
 ---
 
-## 1. Threat Surface Overview
+## 1. Threat Matrix
 
-ReleaseLens ingests Git diffs, parses code changes, triggers browser/cloud workers, and synthesizes release summaries. The threat boundary encompasses:
-- Git Ingestion API (REST & Webhooks).
-- Diff & AST Parsing Engine.
-- Cloud/Browser Execution Worker.
-- LLM / Synthesis Prompts.
-- Dashboard & Storage Store.
-
----
-
-## 2. STRIDE Assessment Matrix
-
-| Threat Category | Potential Attack Vector | Impact | Mitigations |
+| Threat (STRIDE) | Attack Vector | Impact | Engineering Mitigation |
 | :--- | :--- | :--- | :--- |
-| **Spoofing** | Attacker spoofs GitHub webhook payloads or sends fake commit signatures. | Inaccurate RQI scores, false release sign-offs. | HMAC SHA-256 signature verification on webhooks; token authentication on internal API routes. |
-| **Tampering** | Malicious commit diff containing embedded injection payloads intended to manipulate LLM synthesis or escape worker sandbox. | Prompt injection, biased release reports, sandbox breach. | Treat diff text as untrusted raw string data; enforce prompt isolation; run workers in ephemeral unprivileged containers. |
-| **Repudiation** | Release approval or gating override performed without audit trail. | Inability to identify who authorized risky deployment. | Immutable audit log stored for every evaluation and policy override. |
-| **Information Disclosure** | Secret keys, passwords, or PII contained within committed code diffs exposed in reports or logs. | Credential compromise. | Built-in regex secret scrubbing masks API keys (`sk-...`, tokens, passwords) before persisting diff summaries. |
-| **Denial of Service** | Massive 100MB+ minified or binary diffs uploaded to exhaust memory and CPU during parsing. | API degradation, worker thread lock. | Max diff payload cap (e.g. 5MB); reject binary files; parser timeout enforcement. |
-| **Elevation of Privilege** | Sandboxed browser worker exploits container kernel to escape to host system. | Host system compromise. | Rootless container execution, seccomp profiles, restricted network namespaces. |
+| **Spoofing** | Attacker claims ownership of `google.com` or competitor domain to run intrusive scans. | Unauthorized active testing against external sites. | Cryptographic verification token checked via HTTP GET to `/.well-known/releaselens-verify.txt` or meta-tag before granting Tier 2/3 permissions. |
+| **Tampering** | User manipulates audit request payload to target internal cloud metadata IP (`http://169.254.169.254` or `localhost`). | SSRF (Server-Side Request Forgery) attacking internal infrastructure. | SSRF filter: Restrict inspection targets to public domain names; strictly disallow RFC-1918 private IPs, loopback (`127.0.0.1`), and AWS/GCP metadata addresses. |
+| **Repudiation** | User denies triggering an aggressive crawl on an external site. | Legal exposure. | Immutable audit log records `user_id`, timestamp, source IP, and target domain for all initiated inspections. |
+| **Information Disclosure** | Test credentials used for authenticated testing leak via audit logs or AI assistant chat. | Compromise of target application test accounts. | Test credentials are scrubbed from all logs, network traces, and DOM dumps before storage or LLM prompt inclusion. |
+| **Denial of Service** | Malicious actor repeatedly triggers audits to exhaust free-tier quotas (PageSpeed, Gemini, Supabase). | System outage or throttling for legitimate users. | Per-user rate limiting (e.g. 5 audits per hour on free tier) and serverless execution timeouts (max 45 seconds). |
+| **Elevation of Privilege** | User attempts to bypass Tier 1 restrictions without completing verification. | Unauthorized Tier 2/3 execution. | API handlers and database RLS enforce `website.is_verified == true` before allowing Tier 2/3 jobs to queue. |

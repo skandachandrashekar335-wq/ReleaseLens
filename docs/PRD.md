@@ -1,6 +1,6 @@
 # Product Requirements Document (PRD) — ReleaseLens
 
-> **Document Status**: `PROPOSED` / `INITIAL BASELINE`  
+> **Document Status**: `SYNCHRONIZED` / `DISCOVERY IN PROGRESS`  
 > **Last Synchronized**: 2026-11-03  
 > **Target Release**: MVP v0.1.0  
 
@@ -8,43 +8,49 @@
 
 ## 1. Executive Summary
 
-**ReleaseLens** is an intelligent release evaluation, risk scoring, and governance platform. It provides engineering teams, release managers, and cross-functional stakeholders with visibility into code changes, deployment blast radiuses, automated test integrity, and objective release safety metrics.
-
-At its core, ReleaseLens introduces the **Release Quality Index (RQI)**—a weighted, verifiable scoring model that transforms pull requests, commits, CI/CD signals, and automated worker verifications into an actionable health score before code reaches production.
+**ReleaseLens** is a cloud-hosted website quality auditing and release intelligence platform. It enables developers, QA engineers, and product teams to register web applications they own or are authorized to test (including preview/staging URLs such as `*.vercel.app`), execute comprehensive cloud-based quality inspections, track historical quality trends, and interact with a conversational AI assistant grounded strictly in verified inspection evidence.
 
 ---
 
-## 2. Problem Statement & Target Personas
+## 2. Core Constraints & Guiding Principles
 
-### 2.1 The Problem
-1. **Blind Releases**: Teams merge PRs without clear visibility into architectural impact or schema drift.
-2. **Subjective Sign-Offs**: "Ready to deploy" decisions are often based on intuition rather than quantifiable risk metrics.
-3. **Information Silos**: Developers see raw code diffs; product managers and customer success teams receive no digestible summary until customers encounter issues.
-4. **Unverified UI & Workflow Integrity**: CI unit tests pass, but user-facing flows and browser regressions go unnoticed without headless/worker validation.
-
-### 2.2 Target Personas
-- **Engineering Leads & Release Engineers**: Need clear risk blast-radius analysis, dependency review, and automated gating.
-- **Developers**: Need immediate feedback on PR risk score, breaking changes, and automated release note drafts.
-- **Product Managers & Customer Success**: Need tailored, non-technical release notes, feature summaries, and changelog updates.
+1. **Pure Cloud Execution (Zero Local Machine Dependency)**:
+   - No local databases (no local SQLite or Docker required on the user's machine).
+   - No local browser workers or CLI installations.
+   - All persistence, inspection workers, and dashboard operations run in cloud environments.
+2. **Strict Zero-Spend Target (₹0 Budget)**:
+   - Built exclusively on generous, verified free-tier cloud platforms (Vercel, Supabase, Google PageSpeed API, Google Gemini API free tier).
+   - Quotas, rate limits, and cold starts must be explicitly accounted for; no assumptions of infinite free capacity.
+3. **Rigorous Three-Tier Authorization Model**:
+   - URL submission is **never** treated as authorization to perform intrusive or authenticated tests.
+   - **Tier 1 (Public Scan)**: Non-intrusive metadata, SSL, security headers, Core Web Vitals.
+   - **Tier 2 (Verified Ownership)**: Deep link audits, console error monitoring, functional crawls. Requires DNS TXT or meta-tag verification.
+   - **Tier 3 (Authenticated Testing)**: Testing login/auth flows (e.g. Google Sign-In verification). Requires Ownership Verification + designated test credentials.
+4. **Evidence-Grounded AI Assistant**:
+   - The assistant can answer questions (e.g., *"Does Google authentication work on my staging deployment?"*, *"What caused the RQI score to drop from 88 to 72?"*).
+   - The AI assistant **must never invent test outcomes**. If evidence is missing or a test was not run, it must explicitly report `NOT RUN` or `NO EVIDENCE`.
 
 ---
 
 ## 3. High-Level Capabilities & Functional Requirements
 
-| Capability | Priority | Status | Description |
+| Capability | Tier / Priority | Status | Description |
 | :--- | :--- | :--- | :--- |
-| **Git / PR Diff Ingestion** | Must-Have | `PLANNED` | Parse Git commits, PR metadata, unified diffs, and changed file paths. |
-| **RQI (Release Quality Index)** | Must-Have | `PLANNED` | Multi-factor risk scoring engine evaluating blast radius, test coverage, schema migrations, and churn. |
-| **Multi-Audience Release Notes** | Must-Have | `PLANNED` | Automated generation of technical changelogs, executive summaries, and customer-facing notes. |
-| **Cloud / Browser Worker Execution** | Should-Have | `PROPOSED` | Isolated worker environment to execute health checks, smoke tests, and browser verification passes. |
-| **Policy Gating & Thresholds** | Should-Have | `PLANNED` | Configurable rules (e.g. Block release if RQI < 75 or critical breaking changes detected). |
-| **Interactive Release Dashboard** | Must-Have | `PLANNED` | Responsive web UI to visualize releases, inspect file diff impacts, and view RQI breakdowns. |
+| **Google Authentication** | Must-Have | `PLANNED` | Seamless Google OAuth sign-in for users to manage registered sites and audit history. |
+| **Website Onboarding & Management** | Must-Have | `PLANNED` | Register websites, support custom domains and `*.vercel.app` staging URLs. |
+| **Ownership Verification Engine** | Must-Have | `PLANNED` | HTML meta tag or `/.well-known/releaselens-verify.txt` verification to unlock Tier 2 & 3. |
+| **Cloud Website Inspection Engine** | Must-Have | `PLANNED` | Automated checks: Core Web Vitals, SSL/TLS validity, security headers (CSP, HSTS, X-Frame-Options), console error traps, broken links. |
+| **ReleaseLens Quality Index (RQI)** | Must-Have | `PLANNED` | Deterministic composite 0–100 score with transparent sub-category weights and penalties. |
+| **Evidence-Grounded AI Assistant** | Must-Have | `PLANNED` | Conversational interface answering queries strictly using persisted audit logs, traces, and metrics. |
+| **Historical Analytics & Trendlines** | Must-Have | `PLANNED` | Track RQI deltas across consecutive release audits; highlight regressions. |
+| **Audience-Tailored Reporting** | Should-Have | `PLANNED` | Toggle between Engineering (deep logs, headers), QA (failures, broken flows), and Product (release health). |
+| **Source Code / GitHub Integration** | Optional | `DEFERRED` | Optional secondary signal; not required for website auditing. |
 
 ---
 
 ## 4. Acceptance Criteria (MVP Baseline)
 
-1. **Analysis Accuracy**: The engine correctly parses commit diffs, categorizes change types (Feature, Fix, Breaking, Migration, Chore), and flags high-risk modifications (database schemas, auth routes).
-2. **Deterministic RQI**: Given the same diff and CI metrics, the RQI engine outputs a consistent, explainable score from 0 to 100 with explicit factor contributions.
-3. **Audience-Specific Views**: Users can toggle between Engineering, Product, and Stakeholder views for any evaluated release candidate.
-4. **Zero Silent Failures**: All validation, parsing, and worker errors surface clear diagnostic feedback to the user.
+1. **Cloud Exclusivity**: End-to-end operation occurs via cloud URLs with zero local developer machine prerequisites.
+2. **Safe Authorization Boundary**: Intrusive or authenticated tests are impossible to trigger against unverified domains.
+3. **Deterministic RQI**: Transparent formula yields identical scores for identical test results.
+4. **Truthful AI Responses**: The conversational assistant cites specific run IDs, timestamps, and log snippets, refusing to hallucinate unverified states.

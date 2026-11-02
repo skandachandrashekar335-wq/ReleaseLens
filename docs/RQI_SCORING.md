@@ -1,51 +1,44 @@
-# Release Quality Index (RQI) — Scoring Methodology & Weights
+# ReleaseLens Quality Index (RQI) — Website Quality Scoring
 
-> **Document Status**: `INITIAL BASELINE` / `PROPOSED`  
+> **Document Status**: `SYNCHRONIZED`  
 > **Last Synchronized**: 2026-11-03  
 
 ---
 
 ## 1. Overview & Objective
 
-The **Release Quality Index (RQI)** is a normalized metric on a scale of **0 to 100** that evaluates the overall health, stability, and operational risk of a planned release candidate.
+The **ReleaseLens Quality Index (RQI)** is a deterministic composite score from **0 to 100** evaluating the release-readiness and technical health of a deployed website or staging build (e.g. `*.vercel.app`).
 
-- **90 – 100**: **High Confidence / Safe** (Low risk, comprehensive test coverage, minimal blast radius).
-- **75 – 89**: **Moderate Risk / Review Advised** (Moderate churn or schema changes; standard deployment with monitoring).
-- **Below 75**: **High Risk / Gated** (High blast radius, breaking changes, missing tests, or unverified worker passes).
+- **90 – 100**: **Production Ready** (Excellent Core Web Vitals, strong security headers, zero console crashes, accessible).
+- **75 – 89**: **Acceptable with Warnings** (Minor accessibility issues or moderate performance headroom; low deployment risk).
+- **Below 75**: **Release Gated / Review Required** (SSL issues, missing security headers, unhandled console exceptions, or broken critical journeys).
 
 ---
 
-## 2. Mathematical Model & Component Weights
+## 2. Category Weights & Scoring Breakdown
 
-The composite RQI score is computed as:
+$$\text{RQI} = \sum_{i=1}^{5} w_i \cdot S_i - P_{\text{penalties}}$$
 
-$$\text{RQI} = \sum_{i=1}^{n} w_i \cdot S_i - P_{\text{penalties}}$$
-
-Where $w_i$ represents category weights ($\sum w_i = 1.0$), $S_i \in [0, 100]$ represents category sub-scores, and $P$ represents absolute safety deductions.
-
-### Baseline Category Breakdown
-
-| Category ($i$) | Weight ($w_i$) | Description & Signal Inputs |
+| Category ($i$) | Weight ($w_i$) | Metrics & Data Sources |
 | :--- | :--- | :--- |
-| **1. Blast Radius & Path Criticality** ($S_{\text{blast}}$) | 0.25 | Evaluates how close changes are to mission-critical infrastructure (Auth, Payments, DB migrations, Core Routing). |
-| **2. Code Churn & Complexity** ($S_{\text{churn}}$) | 0.20 | Analyzes lines added/deleted, file count, and cyclomatic diff complexity. Large single-file diffs penalize stability. |
-| **3. Test & Verification Integrity** ($S_{\text{test}}$) | 0.30 | CI test pass rate, code coverage delta ($\Delta \text{cov}$), and headless worker verification pass status. |
-| **4. Dependency & Security Hygiene** ($S_{\text{sec}}$) | 0.15 | Vulnerability alerts in updated dependencies, modified permission boundaries, and secret exposure checks. |
-| **5. Migration & Reversibility Risk** ($S_{\text{mig}}$) | 0.10 | Non-additive database migrations (dropped columns, renamed tables) or irreversible state changes. |
+| **1. Security & Header Hygiene ($S_{\text{sec}}$)** | 0.25 | HTTPS enforcement, valid TLS certificate, HSTS, Content-Security-Policy (CSP), X-Frame-Options, X-Content-Type-Options, Referrer-Policy. |
+| **2. Performance & Core Web Vitals ($S_{\text{perf}}$)** | 0.25 | Google PageSpeed / Lighthouse Performance score (LCP, INP, CLS, TTFB, Speed Index). |
+| **3. Functional Integrity ($S_{\text{func}}$)** | 0.20 | JavaScript console error count, 4xx/5xx network asset failures, DOM hydration stability. |
+| **4. Accessibility ($S_{\text{a11y}}$)** | 0.15 | Lighthouse Accessibility score (color contrast, ARIA landmarks, alt attributes, tab navigation order). |
+| **5. Best Practices & SEO ($S_{\text{seo}}$)** | 0.15 | Mobile viewport meta tag, modern image formats, valid robots.txt, canonical tag. |
 
 ---
 
-## 3. Penalty Modifiers ($P_{\text{penalties}}$)
+## 3. Strict Safety Deductions ($P_{\text{penalties}}$)
 
-Certain conditions trigger immediate deductions regardless of otherwise high sub-scores:
-- **Critical Breaking API Change without Version Bump**: -15 points.
-- **Destructive Database Migration (e.g. `DROP TABLE`)**: -20 points.
-- **Failed Cloud Worker Smoke Pass**: -25 points.
-- **Coverage Drop > 5%**: -10 points.
+Specific critical failures trigger immediate point deductions:
+- **Expired or Invalid SSL/TLS Certificate**: -35 points (immediately blocks production release readiness).
+- **Unhandled JavaScript Crash on Page Load**: -20 points.
+- **Critical Auth Flow Failure (Tier 3)**: -25 points.
+- **Clickjacking Vulnerability (Missing `X-Frame-Options` or `frame-ancestors`)**: -10 points.
 
 ---
 
-## 4. Limitations & Edge Cases
+## 4. Evidence Traceability
 
-- **Small Diff Distortion**: Diffs with fewer than 5 lines may exhibit disproportionate percentage swings; minimum baseline thresholds are applied.
-- **Vendor/Generated Files**: Lockfiles (`package-lock.json`), build artifacts, and auto-generated GraphQL/Prisma clients must be filtered from code churn to avoid skewing the score.
+Every factor in the formula links directly to an immutable `AUDIT_EVIDENCE` record. When a user asks the AI assistant why the RQI is low, the assistant reads the exact deduction log (e.g. *"Deducted 20 points because of unhandled TypeError: Cannot read properties of undefined at main.js:142"*).

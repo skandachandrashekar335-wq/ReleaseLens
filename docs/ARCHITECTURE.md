@@ -1,69 +1,43 @@
 # System Architecture — ReleaseLens
 
-> **Document Status**: `INITIAL BASELINE` / `PROPOSED`  
+> **Document Status**: `SYNCHRONIZED`  
 > **Last Synchronized**: 2026-11-03  
 
 ---
 
-## 1. High-Level Architecture
+## 1. Architectural Principles
 
-ReleaseLens is architected as a modular, full-stack application designed for high-density information display, secure data parsing, and isolated verification workloads.
-
-```mermaid
-graph TD
-    subgraph UI / Frontend
-        Client["Web Client (React / Next.js)"]
-        State["Client State & Evaluation Store"]
-    end
-
-    subgraph API & Application Core
-        Router["API Gateway / Route Handlers"]
-        AuthModule["Auth & Session Controller"]
-        Parser["Diff & AST Parsing Service"]
-        RQIEngine["RQI Scoring Service"]
-        AIOrchestrator["Audience Synthesis Service"]
-    end
-
-    subgraph Worker & Isolation Subsystem
-        WorkerQueue["Task Dispatcher"]
-        WorkerSandbox["Isolated Cloud/Browser Runner"]
-    end
-
-    subgraph Persistence Layer
-        DB[("Application Database (SQLite / Postgres)")]
-        FileCache["Ephemeral Diff & Artifact Storage"]
-    end
-
-    Client --> Router
-    Router --> AuthModule
-    Router --> Parser
-    Parser --> RQIEngine
-    RQIEngine --> AIOrchestrator
-    Router --> WorkerQueue
-    WorkerQueue --> WorkerSandbox
-    WorkerSandbox --> RQIEngine
-    AIOrchestrator --> DB
-    RQIEngine --> DB
-```
+1. **Pure Cloud-First**: Zero local machine prerequisites. No local database, local Docker daemon, or machine-local CLI required.
+2. **Zero Spending (₹0 Budget)**: Architected exclusively on verified, free-tier cloud platforms:
+   - **Frontend & Fullstack API**: Next.js deployed on Vercel (Hobby Tier).
+   - **Database & Auth**: Supabase PostgreSQL with Row-Level Security (Free Tier: 500MB DB, Google OAuth included).
+   - **Synthetic Performance & Core Web Vitals**: Google PageSpeed Insights REST API (Free: 25,000 queries/day).
+   - **AI Assistant**: Google Gemini API (Free tier: 15 RPM for Gemini Flash, generous daily quota).
+   - **Cloud Worker Headless Execution**: Serverless Edge/Node inspection workers or free-tier cloud browser runners.
+3. **Rigorous Three-Tier Security Perimeter**: Public scans, verified ownership scans, and authenticated functional tests are strictly segregated.
 
 ---
 
-## 2. Subsystem Descriptions
+## 2. Subsystem Architecture
 
-### 2.1 Web Frontend
-- Modern UI built with TypeScript, React, and Tailwind CSS.
-- Optimized for engineers and product managers: clean typography, zero visual clutter, data-dense inspector panels, and instant responsive feedback.
-- Accessible keyboard navigation and strict high-contrast readability.
+### 2.1 Fullstack Next.js Web Application
+- Server Components for fast rendering and minimal client bundle overhead.
+- Server Actions & Route Handlers for orchestrating cloud inspections, authenticating requests, and storing audit runs.
+- Supabase SSR Auth integration for seamless Google Sign-In and secure session cookies.
 
-### 2.2 Core Analysis Engine
-- **Diff Ingestion**: Safely strips out sensitive binary files and large lockfile noise while isolating high-impact code hunks.
-- **AST / Heuristic Classifier**: Detects database schema changes, route changes, breaking API signatures, and dependency modifications.
-- **Deterministic RQI Calculator**: Implements the mathematical formulas documented in `docs/RQI_SCORING.md`.
+### 2.2 Domain Verification Subsystem
+- Before any intrusive crawler or authenticated test is permitted, the user must prove domain ownership.
+- Verification methods:
+  - **Meta Tag**: `<meta name="releaselens-verification" content="rl_verify_token">`
+  - **Well-Known File**: `/.well-known/releaselens-verify.txt` (Ideal for Vercel/Next.js preview deploys via `public/` directory).
+  - **DNS TXT Record**: For apex custom domains.
 
-### 2.3 Cloud / Browser Worker
-- Designed to execute synthetic smoke checks and headless verification flows in an isolated sandbox.
-- Restricts filesystem access, prevents network escape, and captures strict timeout/memory metrics. Details in `docs/CLOUD_WORKER.md`.
+### 2.3 Cloud Inspection Subsystem
+- **HTTP / Security Headers**: Evaluates HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, and TLS certificate expiry.
+- **Performance & Usability**: Directly invokes the Google PageSpeed Insights API to obtain Lighthouse scores (Performance, Accessibility, Best Practices, SEO) and Core Web Vitals (LCP, FID/INP, CLS).
+- **Console & Network Error Sniffer**: Crawls target URLs via serverless fetch/headless workers to intercept 4xx/5xx network errors and unhandled JavaScript exceptions.
 
-### 2.4 Data & State Persistence
-- Release histories, RQI reports, and configured gating policies are stored in a relational schema.
-- Data retention rules ensure transient diff data can be scrubbed while retaining audit summaries.
+### 2.4 Evidence-Backed AI Subsystem
+- The AI assistant is conditioned with an **Evidence-Only System Prompt**.
+- Queries retrieve the exact JSON payload of the specified `AuditRun` (metrics, logs, network failures).
+- Prompt rule: *"If a test for X was not executed, state 'No test was executed for X'. Under no circumstances infer or assume the result."*

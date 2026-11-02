@@ -1,6 +1,6 @@
 # Architecture Decision Records (ADRs) — ReleaseLens
 
-> **Document Status**: `INITIAL BASELINE`  
+> **Document Status**: `SYNCHRONIZED`  
 > **Last Synchronized**: 2026-11-03  
 
 ---
@@ -12,46 +12,64 @@
 | **ADR-001** | Documentation Governance as a Continuous Engineering Requirement | 2026-11-03 | `ACCEPTED` |
 | **ADR-002** | Deterministic Mathematical Foundation for RQI Scoring | 2026-11-03 | `ACCEPTED` |
 | **ADR-003** | Multi-Audience Synthesis Separation | 2026-11-03 | `ACCEPTED` |
-| **ADR-004** | Isolated Worker Architecture for Dynamic Smoke Verification | 2026-11-03 | `PROPOSED` |
+| **ADR-004** | Cloud Worker Architecture for Dynamic Smoke Verification | 2026-11-03 | `ACCEPTED` |
+| **ADR-005** | Pivot to Cloud-Hosted Website Quality & Intelligence Platform | 2026-11-03 | `ACCEPTED` |
+| **ADR-006** | Zero-Spend Architecture (₹0 Budget) using Free-Tier Cloud Services | 2026-11-03 | `ACCEPTED` |
+| **ADR-007** | Strict Three-Tier Authorization Model (Public vs Verified vs Authenticated) | 2026-11-03 | `ACCEPTED` |
 
 ---
 
 ## ADR-001: Documentation Governance as a Continuous Engineering Requirement
-
-### Context
-Codebases suffer from documentation drift when documentation is treated as an afterthought or milestone post-mortem. In an AI-assisted and agentic development environment, out-of-date documentation directly causes hallucinations, architectural regressions, and misaligned implementations.
-
-### Decision
-Enforce permanent documentation governance via `AGENTS.md`. Every change to code, schema, APIs, or tests must update corresponding documentation in the same change set. Test results and implementation states must be supported by empirical evidence (`IMPLEMENTED`, `TESTED`, `PROPOSED`, etc.).
-
-### Consequences
-- **Positive**: High documentation accuracy, rapid onboarding, deterministic agent prompts, zero drift.
-- **Trade-off**: Requires dedicated discipline and verification turn in every engineering task.
+*See initial baseline.* Enforces continuous synchronization of all documentation with actual repository reality.
 
 ---
 
 ## ADR-002: Deterministic Mathematical Foundation for RQI Scoring
-
-### Context
-Release risk scoring must be objective, reproducible, and explainable to both engineers and leadership. Relying purely on non-deterministic LLM evaluation leads to inconsistent scoring across runs.
-
-### Decision
-The core **Release Quality Index (RQI)** will be computed via a deterministic, weighted mathematical model factoring in code churn, file criticality (auth, migrations, core logic), test pass rates, and coverage deltas. AI will be utilized to augment qualitative explanations and audience summaries, but not to override the core quantitative score without explicit user override.
-
-### Consequences
-- **Positive**: Explainable, verifiable, and consistent metrics. Transparent weighting documented in `docs/RQI_SCORING.md`.
-- **Trade-off**: Requires careful tuning of heuristic weights.
+*Updated context.* RQI (Release Quality Index) is a 0–100 score evaluating website quality across Performance, Accessibility, Security/Headers/SSL, Functional Integrity (e.g. Console errors, broken links, auth flows), and SEO/Best Practices. AI provides evidence-backed explanations but cannot fabricate or arbitrarily override the quantitative index.
 
 ---
 
 ## ADR-003: Multi-Audience Synthesis Separation
+*Updated context.* Audit reports generate distinct perspectives: Technical/Engineering (Lighthouse metrics, console traces, network payload errors), Product (readiness, UX usability, broken user journeys), and Executive (overall RQI score, release risk verdict).
+
+---
+
+## ADR-004: Cloud Worker Architecture for Dynamic Smoke Verification
+*Updated context.* All inspections run entirely in cloud-hosted environments. No machine-local execution, local CLI, or local browser instances.
+
+---
+
+## ADR-005: Pivot to Cloud-Hosted Website Quality & Intelligence Platform
 
 ### Context
-Different stakeholders require vastly different views of the same release: engineers need low-level diffs, product managers need user-facing feature summaries, and executives/customer support need high-level impact and risk alerts.
+Initial exploration considered Git diff review. The confirmed core product requirement is a **cloud-based website quality auditing and intelligence platform** where users register websites (including `.vercel.app` domains), run automated cloud inspections, track historical quality, and query an evidence-backed conversational AI assistant.
 
 ### Decision
-Decouple the data extraction from the audience rendering. Generate three discrete audience outputs (`Engineering`, `Product`, `Customer`) from a single evaluated release payload.
+Pivot all architecture, models, workflows, and specifications to cloud-based website auditing. Git/source-code integration is optional and deferred.
 
-### Consequences
-- **Positive**: One source of truth serves all teams without manual translation.
-- **Trade-off**: Increases generation overhead per release evaluation.
+---
+
+## ADR-006: Zero-Spend Architecture (₹0 Budget) using Free-Tier Cloud Services
+
+### Context
+Target budget is explicitly ₹0. The platform cannot rely on paid infrastructure or assume unlimited free quotas.
+
+### Decision
+Leverage verified generous free-tier services:
+- **Hosting & Compute**: Vercel (Hobby plan) or Cloudflare Pages.
+- **Database & Auth**: Supabase (Free tier: 500MB DB, Google OAuth, Row Level Security) or Neon Serverless Postgres.
+- **AI Model & Embeddings**: Google Gemini API (Free tier: 15 RPM for Gemini 1.5 Flash / 2.0 Flash) or Groq free tier.
+- **Auditing Engine**: Cloud-executed PageSpeed Insights API (Free Google API quota: 25,000 queries/day) combined with serverless worker HTTP/SSL/header inspectors, and serverless Playwright/Puppeteer workers within free execution budgets.
+
+---
+
+## ADR-007: Strict Three-Tier Authorization Model (Public vs Verified vs Authenticated)
+
+### Context
+Allowing arbitrary users to input any URL and run deep or intrusive functional/authenticated checks poses severe legal, ethical, and denial-of-service risks against third-party websites.
+
+### Decision
+Enforce a 3-tier testing boundary:
+1. **Tier 1 (Public Inspection)**: Non-intrusive public scans (HTTP headers, SSL certificate, Lighthouse/Core Web Vitals, public HTML accessibility, robots.txt). Available for any valid public URL.
+2. **Tier 2 (Verified Ownership Inspection)**: Deep crawl, broken link checks, form discovery, load stress checks. Requires proof of ownership via DNS TXT record or HTML meta tag / verification file (e.g., `/.well-known/releaselens-verify.txt`).
+3. **Tier 3 (Authenticated Testing)**: Testing behind login (e.g., verifying Google Sign-In or username/password flows). Strictly requires verified ownership + explicitly configured test credentials in encrypted storage.
