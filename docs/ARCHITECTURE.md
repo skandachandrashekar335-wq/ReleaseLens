@@ -1,43 +1,72 @@
 # System Architecture — ReleaseLens
 
-> **Document Status**: `SYNCHRONIZED`  
+> **Document Status**: `SYNCHRONIZED` / `FINAL DRAFT (ROUND 5)`  
 > **Last Synchronized**: 2026-11-03  
 
 ---
 
-## 1. Architectural Principles
+## 1. System Topology Overview
 
-1. **Pure Cloud-First**: Zero local machine prerequisites. No local database, local Docker daemon, or machine-local CLI required.
-2. **Zero Spending (₹0 Budget)**: Architected exclusively on verified, free-tier cloud platforms:
-   - **Frontend & Fullstack API**: Next.js deployed on Vercel (Hobby Tier).
-   - **Database & Auth**: Supabase PostgreSQL with Row-Level Security (Free Tier: 500MB DB, Google OAuth included).
-   - **Synthetic Performance & Core Web Vitals**: Google PageSpeed Insights REST API (Free: 25,000 queries/day).
-   - **AI Assistant**: Google Gemini API (Free tier: 15 RPM for Gemini Flash, generous daily quota).
-   - **Cloud Worker Headless Execution**: Serverless Edge/Node inspection workers or free-tier cloud browser runners.
-3. **Rigorous Three-Tier Security Perimeter**: Public scans, verified ownership scans, and authenticated functional tests are strictly segregated.
+ReleaseLens is architected as a modular, decoupled cloud system operating strictly on free-tier infrastructure with zero machine-local dependencies and zero payment requirements:
+
+```mermaid
+graph TD
+    subgraph Client [Browser / Frontend]
+        UI["ReleaseLens Web Dashboard (Next.js 15 / React)"]
+        GoogleAuthClient["Google OAuth Sign-In (Supabase Auth)"]
+        ChatDrawer["Evidence AI Assistant Drawer"]
+    end
+
+    subgraph App Layer [Vercel Hobby Tier]
+        AppServer["Next.js Server Actions & API Routes"]
+        VerifierService["Domain Ownership Verifier"]
+        RQIService["Tripartite RQI Calculation Engine"]
+        DeltaService["Release Regression Delta Analyzer"]
+        EvidenceService["Evidence Sanitizer & Prompt Assembler"]
+    end
+
+    subgraph Inspection Layer [Zero-Cost Cloud APIs & Workers]
+        PageSpeedAPI["Google PageSpeed Insights REST API (25k req/day free)"]
+        CloudflareCrawler["Tier 2 Link Crawler (Cloudflare Worker Free: 100k req/day)"]
+    end
+
+    subgraph Persistence & Intelligence [Free-Tier Managed Services]
+        SupabaseDB[("Supabase Free Tier (PostgreSQL + RLS, 500MB)")]
+        GeminiAPI["Google Gemini 1.5/2.0 Flash (AI Studio Free: 15 RPM)"]
+    end
+
+    UI --> AppServer
+    GoogleAuthClient --> SupabaseDB
+    AppServer --> SupabaseDB
+    AppServer --> VerifierService
+    AppServer --> PageSpeedAPI
+    AppServer --> CloudflareCrawler
+    PageSpeedAPI --> RQIService
+    CloudflareCrawler --> RQIService
+    RQIService --> DeltaService
+    DeltaService --> SupabaseDB
+    ChatDrawer --> EvidenceService
+    EvidenceService --> SupabaseDB
+    EvidenceService --> GeminiAPI
+    GeminiAPI --> ChatDrawer
+```
 
 ---
 
-## 2. Subsystem Architecture
+## 2. Component Boundaries & Responsibilities
 
-### 2.1 Fullstack Next.js Web Application
-- Server Components for fast rendering and minimal client bundle overhead.
-- Server Actions & Route Handlers for orchestrating cloud inspections, authenticating requests, and storing audit runs.
-- Supabase SSR Auth integration for seamless Google Sign-In and secure session cookies.
-
-### 2.2 Domain Verification Subsystem
-- Before any intrusive crawler or authenticated test is permitted, the user must prove domain ownership.
-- Verification methods:
-  - **Meta Tag**: `<meta name="releaselens-verification" content="rl_verify_token">`
-  - **Well-Known File**: `/.well-known/releaselens-verify.txt` (Ideal for Vercel/Next.js preview deploys via `public/` directory).
-  - **DNS TXT Record**: For apex custom domains.
-
-### 2.3 Cloud Inspection Subsystem
-- **HTTP / Security Headers**: Evaluates HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, and TLS certificate expiry.
-- **Performance & Usability**: Directly invokes the Google PageSpeed Insights API to obtain Lighthouse scores (Performance, Accessibility, Best Practices, SEO) and Core Web Vitals (LCP, FID/INP, CLS).
-- **Console & Network Error Sniffer**: Crawls target URLs via serverless fetch/headless workers to intercept 4xx/5xx network errors and unhandled JavaScript exceptions.
-
-### 2.4 Evidence-Backed AI Subsystem
-- The AI assistant is conditioned with an **Evidence-Only System Prompt**.
-- Queries retrieve the exact JSON payload of the specified `AuditRun` (metrics, logs, network failures).
-- Prompt rule: *"If a test for X was not executed, state 'No test was executed for X'. Under no circumstances infer or assume the result."*
+1. **Next.js Web Dashboard (Vercel Hobby)**:
+   - Manages UI rendering, user authentication sessions, domain registration, and audit telemetry.
+   - Strictly conforms to Vercel personal/non-commercial fair-use rules by performing zero outbound scraping.
+2. **Domain Ownership Verifier**:
+   - Executes single HTTP GET requests to check `<meta name="releaselens-verification">` or `/.well-known/releaselens-verify.txt`.
+   - Enforces origin matching and rejects cross-domain redirects.
+3. **Cloudflare Worker Link Crawler (Tier 2)**:
+   - High-throughput, low-latency edge worker deployed on Cloudflare Free Plan (100k requests/day).
+   - Receives target URL, spiders up to 15 internal links within the same origin, tests for 404/500 status codes, and returns broken link telemetry in $<800\text{ms}$. Consumes $<3\text{ms}$ CPU time.
+4. **Google PageSpeed API (Tier 1)**:
+   - Direct REST API integration retrieving mobile/desktop Lighthouse metrics (Performance, Accessibility, Best Practices, SEO) and Core Web Vitals.
+5. **Supabase PostgreSQL & Auth**:
+   - Manages user accounts, registered sites, audit records, RQI breakdowns, and chat history. Enforces strict Row-Level Security (RLS).
+6. **Gemini Flash Evidence AI Assistant**:
+   - Read-only, toolless assistant answering user queries strictly from sanitized, delimited audit payloads.

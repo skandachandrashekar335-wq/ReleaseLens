@@ -1,57 +1,30 @@
-# Cloud Worker & Execution Architecture — ReleaseLens
+# Cloud Worker & Crawler Architecture — ReleaseLens
 
-> **Document Status**: `SYNCHRONIZED` / `REVISED SPECIFICATION`  
+> **Document Status**: `SYNCHRONIZED` / `FINAL SPECIFICATION (ROUND 5)`  
 > **Last Synchronized**: 2026-11-03  
 
 ---
 
-## 1. Cloud Provider Limits & Execution Feasibility
+## 1. Cloud Execution Architecture for MVP
 
-| Provider / Runtime | Free-Tier Limits | Browser Binary Support | Cold Start | Timeout Limit | Feasibility for Headless Browser |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Vercel Serverless (Hobby)** | 100k invocations/mo, 100 concurrent reqs | Compressing Chromium (`@sparticuz/chromium`) requires extracting brotli to `/tmp` (~50MB) | 4–8 seconds | 10s default (configurable to 60s) | **High Risk**: Prone to 504 timeouts on slow previews; Chromium cold start eats most of the execution budget. |
-| **GitHub Actions Runner** | 2,000 Linux runner minutes/month (free on private, unlimited on public) | Full real Google Chrome & Playwright pre-installed in Ubuntu VM | 2–5 seconds queue time | 6 hours (we cap at 45s) | **Excellent**: Dedicated VM (2 vCPU, 7GB RAM), zero timeout danger, true OS isolation, 100% free. |
-| **Cloudflare Workers** | 100k req/day free | Browser Rendering API requires paid plan ($5/mo) | N/A | 30s | **Ineligible**: Violates ₹0 budget requirement. |
-| **Koyeb / Render Free Tier** | 1 web service, 512MB RAM | Docker container with Chromium | 30–50s (sleep on idle) | 30s | **Poor**: 512MB RAM causes Chrome out-of-memory crashes; high latency sleep wake-ups. |
-
----
-
-## 2. Recommended Hybrid Execution Architecture
-
-ReleaseLens implements a decoupled, two-tier execution pipeline:
-
-```mermaid
-flowchart TD
-    User["User Triggers Audit"] --> API["ReleaseLens Next.js API (Vercel)"]
-    API --> Decision{"Audit Tier?"}
-    
-    Decision -->|"Tier 1 (Public Scan)"| VercelJob["Vercel Serverless Worker"]
-    subgraph Fast Serverless Execution [2–4 seconds total]
-        VercelJob --> P1["Google PageSpeed Insights REST API"]
-        VercelJob --> P2["Native TLS / SSL Certificate Inspector"]
-        VercelJob --> P3["Security Header & Redirect Inspector"]
-    end
-    
-    Decision -->|"Tier 2 (Deep) / Tier 3 (Auth)"| GHAction["GitHub Actions Ephemeral Runner"]
-    subgraph Isolated Ephemeral Runner [20–35 seconds total]
-        GHAction --> B1["Spin up Ubuntu VM (2 vCPU, 7GB RAM)"]
-        B1 --> B2["Run Headless Playwright Crawl (Max 15 pages)"]
-        B2 --> B3["Capture Console Errors, Network Drops & OAuth Contract"]
-        B3 --> B4["POST Encrypted Evidence Webhook to ReleaseLens API"]
-    end
-
-    P1 --> Aggregate["RQI Calculation Engine"]
-    P2 --> Aggregate
-    P3 --> Aggregate
-    B4 --> Aggregate
-    Aggregate --> Supabase[("Supabase DB (Postgres)")]
-```
+In accordance with strict ₹0 budget and platform compliance requirements:
+- **Zero Local Footprint**: No Playwright or Puppeteer execution on the developer's machine.
+- **Vercel Hobby Compliance**: Outbound link crawling is decoupled from Vercel Serverless Functions to comply with Vercel Fair Use policies.
+- **Provider Sourcing**:
+  - **Tier 1 (Public Scan)**: Direct Google PageSpeed Insights REST API + native TLS/Header socket probe.
+  - **Tier 2 (Deep Link Audit)**: **Cloudflare Workers Free Tier** (100,000 requests/day, 10ms CPU limit, up to 50 subrequests).
+  - **Tier 3 (Headless Browser Worker)**: **Deferred to Post-MVP (v0.2.0)** pending live container network egress firewall verification.
 
 ---
 
-## 3. Experimental Validation Plan
+## 2. Cloudflare Worker Tier 2 Link Crawler Design
 
-To validate this hybrid model prior to production rollout:
-1. **Benchmark Vercel Serverless Probes**: Verify that native TLS inspection and PageSpeed REST API calls complete within 3 seconds across 20 distinct domains.
-2. **Benchmark GitHub Actions Dispatch**: Test latency from API `repository_dispatch` trigger to webhook callback arrival. Expected: 18–30 seconds.
-3. **SSRF Rebinding Verification**: Run automated regression test against a local DNS rebinding test server (`rbndr.us`) to confirm our socket-pinning agent blocks the connection before socket write.
+- **Runtime**: Cloudflare V8 Worker on free plan.
+- **Execution Flow**:
+  1. Worker receives POST payload: `{ "targetUrl": "https://myapp.vercel.app", "maxDepth": 2, "maxPages": 15 }`.
+  2. Fetches root page, extracts internal `<a href="...">` links matching `URL.origin`.
+  3. Executes parallel subrequests (`HEAD` / `GET`) up to 15 unique internal URLs.
+  4. Records HTTP response statuses (200, 301, 404, 500).
+  5. Returns structured JSON: `{ "scannedCount": 14, "brokenLinks": [{ "url": "/pricing", "status": 404, "source": "/" }], "durationMs": 420 }`.
+- **Resource Consumption**: Consumes $\sim 2\text{ms}$ of CPU time (limit: 10ms) and 1 invocation (limit: 100,000/day).
+- **Zero Billing Guarantee**: Cloudflare Workers free plan returns HTTP 1027 when daily quota is reached; it **never** auto-bills.
