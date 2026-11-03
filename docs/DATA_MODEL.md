@@ -1,6 +1,6 @@
 # Data Model & Schema — ReleaseLens
 
-> **Document Status**: `SYNCHRONIZED`  
+> **Document Status**: `SYNCHRONIZED` / `RESET TO TESTING & BUG DISCOVERY PLATFORM`  
 > **Last Synchronized**: 2026-11-03  
 
 ---
@@ -9,13 +9,14 @@
 
 ```mermaid
 erDiagram
-    USER ||--o{ WEBSITE : owns
-    WEBSITE ||--o{ OWNERSHIP_VERIFICATION : verifies
-    WEBSITE ||--o{ AUDIT_RUN : undergoes
-    AUDIT_RUN ||--o{ AUDIT_EVIDENCE : generates
-    AUDIT_RUN ||--|| RQI_SCORE : computes
-    WEBSITE ||--o{ CHAT_SESSION : contains
-    CHAT_SESSION ||--o{ CHAT_MESSAGE : logs
+    USER ||--o{ PROJECT : owns
+    PROJECT ||--o{ AUDIT_RUN : undergoes
+    AUDIT_RUN ||--o{ AUTOMATED_CHECK : records
+    AUDIT_RUN ||--|| RQI_SCORE : evaluates
+    PROJECT ||--o{ BUG_REPORT : tracks
+    BUG_REPORT ||--o{ BUG_EVIDENCE : contains
+    BUG_REPORT ||--o{ RETEST_HISTORY : logs
+    PROJECT ||--o{ CHAT_SESSION : contains
 
     USER {
         uuid id PK
@@ -25,81 +26,99 @@ erDiagram
         datetime created_at
     }
 
-    WEBSITE {
+    PROJECT {
         uuid id PK
         uuid user_id FK
-        string domain_or_url
         string name
-        string tier_level "PUBLIC | VERIFIED | AUTHENTICATED"
+        string target_url
+        string environment "PRODUCTION | STAGING | PREVIEW"
         boolean is_verified
+        string verification_token
         datetime created_at
         datetime updated_at
     }
 
-    OWNERSHIP_VERIFICATION {
-        uuid id PK
-        uuid website_id FK
-        string verification_token
-        string method "META_TAG | WELL_KNOWN_FILE | DNS_TXT"
-        string status "PENDING | VERIFIED | FAILED"
-        datetime verified_at
-        string last_error
-    }
-
     AUDIT_RUN {
         uuid id PK
-        uuid website_id FK
+        uuid project_id FK
         string target_url
-        string audit_tier "PUBLIC | VERIFIED | AUTHENTICATED"
+        string audit_tier "TIER_1_PUBLIC | TIER_2_VERIFIED"
         string status "QUEUED | RUNNING | COMPLETED | FAILED"
-        float rqi_composite_score
         datetime started_at
         datetime completed_at
+    }
+
+    AUTOMATED_CHECK {
+        uuid id PK
+        uuid audit_run_id FK
+        string category "AVAILABILITY | TLS | HEADERS | BROKEN_LINKS | PAGESPEED | ACCESSIBILITY"
+        string check_name
+        string status "PASS | FAIL | NOT_RUN | INCONCLUSIVE"
+        json raw_evidence
+        string error_message
     }
 
     RQI_SCORE {
         uuid id PK
         uuid audit_run_id FK
-        float score_performance
-        float score_accessibility
-        float score_security_headers
-        float score_functional_integrity
-        float score_best_practices
-        float composite_score
-        json deductions
+        string release_verdict "VERIFIED_READY | PROVISIONAL_PASS | REVIEW_REQUIRED | RELEASE_BLOCKED"
+        float quality_score
+        float coverage_percent
+        string gate_security "PASS | FAIL | NOT_RUN | INCONCLUSIVE"
+        string gate_functional "PASS | FAIL | NOT_RUN | INCONCLUSIVE"
+        json factor_breakdown
     }
 
-    AUDIT_EVIDENCE {
+    BUG_REPORT {
         uuid id PK
-        uuid audit_run_id FK
-        string category "SSL | HEADERS | LIGHTHOUSE | CONSOLE | NETWORK | AUTH_FLOW"
-        string test_name
-        string status "PASSED | FAILED | WARNING | NOT_RUN"
-        json raw_payload
-        string log_excerpt
+        uuid project_id FK
+        uuid user_id FK
+        string title
+        string description
+        string affected_url
+        json steps_to_reproduce
+        string expected_result
+        string actual_result
+        string severity "CRITICAL | HIGH | MEDIUM | LOW"
+        string status "OPEN | ACKNOWLEDGED | IN_PROGRESS | FIXED | RETEST_REQUIRED | VERIFIED | REOPENED"
+        json environment_telemetry
+        string developer_notes
+        datetime created_at
+        datetime updated_at
+    }
+
+    BUG_EVIDENCE {
+        uuid id PK
+        uuid bug_report_id FK
+        string evidence_type "SCREENSHOT | CONSOLE_LOG | NETWORK_TRACE"
+        string file_url_or_text
+        datetime captured_at
+    }
+
+    RETEST_HISTORY {
+        uuid id PK
+        uuid bug_report_id FK
+        uuid user_id FK
+        string previous_status
+        string new_status
+        string tester_comment
+        datetime retested_at
     }
 
     CHAT_SESSION {
         uuid id PK
-        uuid website_id FK
+        uuid project_id FK
         uuid user_id FK
-        datetime created_at
-    }
-
-    CHAT_MESSAGE {
-        uuid id PK
-        uuid chat_session_id FK
-        string role "USER | ASSISTANT | SYSTEM"
-        string content
-        json referenced_evidence_ids
         datetime created_at
     }
 ```
 
 ---
 
-## 2. Row-Level Security (RLS) Rules (Supabase / Postgres)
+## 2. Row-Level Security (RLS) Policies
 
-1. **`WEBSITE`**: Users can only insert, select, update, or delete websites where `user_id = auth.uid()`.
-2. **`AUDIT_RUN` & `RQI_SCORE`**: Access strictly bounded to the owner of the parent `website_id` (or publicly viewable if the owner flags a specific report as public).
-3. **`CHAT_SESSION` & `CHAT_MESSAGE`**: Restricted strictly to the authenticated `user_id`.
+All tables enforce strict Row-Level Security:
+1. **`PROJECT`**: Select/Insert/Update/Delete where `user_id = auth.uid()`.
+2. **`BUG_REPORT` & `BUG_EVIDENCE`**: Access scoped to projects owned by `auth.uid()`, OR viewable via public read-only share token if the owner generates a shareable report permalink.
+3. **`AUDIT_RUN` & `AUTOMATED_CHECK`**: Scoped to the parent project's owner.
+4. **`CHAT_SESSION`**: Strictly restricted to `auth.uid()`.

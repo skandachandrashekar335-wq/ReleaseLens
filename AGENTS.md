@@ -4,7 +4,24 @@
 
 ---
 
-## 1. Core Operating Principles
+## 1. Product Identity & Purpose
+
+**ReleaseLens** is a **cloud-hosted Web Application Testing, Bug Discovery, Evidence Collection, and Release-Readiness Platform**.
+
+It is purpose-built to empower testers, QA engineers, and hackathon builders to:
+1. **Register web applications and deployment environments** (including ephemeral Vercel/Netlify preview deployments).
+2. **Execute bounded, automated quality audits** (availability, TLS, security headers, broken links, HTTP errors, and Core Web Vitals).
+3. **Conduct manual exploratory testing** and log structured bug reports with steps to reproduce, expected vs. actual behavior, screenshots, and technical evidence.
+4. **Generate structured, developer-ready bug reports** that developers can immediately diagnose and act on.
+5. **Track issues through an actionable lifecycle** (`Open` $\to$ `Acknowledged` $\to$ `In Progress` $\to$ `Fixed` $\to$ `Retest Required` $\to$ `Verified` / `Reopened`).
+6. **Retest releases and track regressions** via comparative release deltas and the **ReleaseLens Quality Index (RQI)**.
+7. **Interact with an evidence-grounded, read-only AI assistant** that interprets findings and crafts developer summaries without hallucinating test outcomes.
+
+> **CRITICAL SCOPE RULE**: ReleaseLens is NOT merely a PageSpeed clone or website scanner. Its differentiation lies in unifying **automated checks, manual exploratory bug discovery, evidence-backed developer handoffs, and release-readiness gating**.
+
+---
+
+## 2. Core Operating Principles
 
 1. **Read Before Writing**: Inspect the entire repository, directory structure, package manifests, existing architecture documents, source code, and tests before implementing any change.
 2. **Preserve Established Decisions**: Adhere to documented Architecture Decision Records (`docs/DECISIONS.md`), specifications (`docs/PROJECT_SPEC.md`), and requirements (`docs/PRD.md`) unless a justified, explicitly documented reason exists to revise them.
@@ -22,29 +39,13 @@
 
 ---
 
-## 2. Documentation Architecture & Mapping
-
-Every task must update its relevant documentation counterpart:
-
-| Change Category | Mandatory Documentation Updates |
-| :--- | :--- |
-| **New Feature / User Flow** | `README.md`, `docs/PRD.md`, `docs/PROJECT_WORKFLOW.md`, `docs/API_CONTRACTS.md`, `docs/CHANGELOG.md` |
-| **Architecture / System Design** | `docs/ARCHITECTURE.md`, `docs/BLUEPRINT.md`, `docs/DECISIONS.md` |
-| **Database / Persistence** | `docs/DATA_MODEL.md`, `docs/API_CONTRACTS.md`, `docs/SECURITY.md` |
-| **Authentication & Authorization** | `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `docs/PRIVACY_AND_RETENTION.md`, `docs/ENVIRONMENT.md` |
-| **UI / UX / Frontend** | `docs/DESIGN.md`, `docs/BLUEPRINT.md`, component documentation |
-| **Worker Execution / Isolation** | `docs/CLOUD_WORKER.md`, `docs/SECURITY.md`, `docs/THREAT_MODEL.md` |
-| **Release Scoring / Intelligence** | `docs/RQI_SCORING.md`, `docs/TEST_RESULTS.md` |
-| **Bug Fixes / Regressions** | `docs/CHANGELOG.md`, `docs/TEST_RESULTS.md` (regression tests) |
-| **Security & Threat Mitigation** | `docs/SECURITY.md`, `docs/THREAT_MODEL.md`, `docs/DECISIONS.md` |
-| **Deployment / Environment** | `docs/DEPLOYMENT.md`, `docs/ENVIRONMENT.md`, `README.md` |
-
----
-
 ## 3. Strict Status State Machine
 
 When describing any module, feature, or verification item in any document or response, use exclusively these standardized statuses:
 
+- `DOCUMENTED`: Supported by official vendor documentation.
+- `REASONED`: Supported by technical analysis, but pending empirical test.
+- `EXPERIMENTALLY_VERIFIED`: Empirically validated with recorded test evidence.
 - `PROPOSED`: Ideated or suggested; under active review or discovery interview.
 - `PLANNED`: Confirmed in roadmap/spec, awaiting implementation.
 - `IN PROGRESS`: Actively under construction in the current cycle.
@@ -54,25 +55,3 @@ When describing any module, feature, or verification item in any document or res
 - `NOT RUN`: Test exists or is planned, but has not yet been executed in this environment.
 - `BLOCKED`: Unable to proceed due to a recorded dependency or missing secret.
 - `DEPRECATED`: Superseded or scheduled for removal.
-
----
-
-## 4. Test Verification Standard
-
-In `docs/TEST_RESULTS.md`, every recorded test run must explicitly capture:
-1. Timestamp & Environment (OS, node/python/runtime version).
-2. Exact invocation command (e.g. `npm test`, `pytest`).
-3. Execution outcome: Passed count, Failed count, Skipped count.
-4. Specific test suite files and assertions executed.
-5. Known failures and reproduction steps.
-
----
-
-## 5. Enforcement Checklist for Every Task
-
-Before declaring any milestone or prompt complete:
-- [ ] Has the repository state been inspected and verified?
-- [ ] Do implementation changes have corresponding tests?
-- [ ] Have all affected documentation files in `docs/` been updated to mirror reality?
-- [ ] Are all statuses accurately labeled (`IMPLEMENTED`, `TESTED`, `PROPOSED`, etc.)?
-- [ ] Does `README.md` reflect the current, runnable state of the project?

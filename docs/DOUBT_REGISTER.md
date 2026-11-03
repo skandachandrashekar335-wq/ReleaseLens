@@ -1,30 +1,19 @@
 # Master Doubt & Workflow Register — ReleaseLens
 
-> **Status**: `VALIDATED ARCHITECTURE BASELINE (ROUND 3)`  
+> **Status**: `SYNCHRONIZED` / `RESET TO TESTING & BUG DISCOVERY PLATFORM`  
 > **Last Synchronized**: 2026-11-03  
 
 ---
 
-## 1. Classification Overview
+## 1. Master Register Summary
 
-- **Group 1: Must Ask User** (Final product boundary confirmations).
-- **Group 2: Agent Investigated & Validated** (Architecture, security, mathematical formulas, free-tier limits).
-- **Group 3: Validate Experimentally** (Proof-of-concept benchmarks during initial setup).
-
----
-
-## 2. Technical & Architectural Register (Updated)
-
-| ID | Category | Uncertainty / Risk | Risk | Resolution | Status |
+| ID | Category | Question / Uncertainty | Risk | Resolution | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **DBT-001** | Product | On-demand release audits vs continuous scheduled crons? | High | On-demand release audits with regression deltas. Scheduled background monitoring excluded from MVP to preserve free-tier quotas. | `CONFIRMED DEFAULT` |
-| **DBT-002** | Auth Test | Realistic verification of Google Sign-In without hitting anti-bot blocks? | Critical | 7-Level Auth Ladder: Levels 1–4 verify OAuth contract/redirect/callback reachability; Level 5 supports optional dedicated staging test identity. Real consumer Google login excluded due to Google anti-bot CAPTCHAs. | `VALIDATED (ADR-009)` |
-| **DBT-003** | Cloud Infra | Browser worker architecture under strict ₹0 budget without AUP violation? | Critical | GitHub Actions rejected due to AUP multi-tenant risks. Native Serverless Crawler used for Tier 1 & 2 link checks; Google Cloud Run free tier container runner used for Tier 3 headless checks. | `VALIDATED (ADR-014)` |
-| **DBT-004** | Security | Browser SSRF & subresource network containment? | Critical | Playwright `page.route('**/*')` intercepts all subresources, iframes, fetches, and WebSockets. Destination IP resolved and validated before connection. Local network bridging disabled. | `VALIDATED (ADR-015)` |
-| **DBT-005** | Ownership | Preview URL verification on `*.vercel.app` without DNS access? | High | HTML `<meta name="releaselens-verification">` and `/.well-known/releaselens-verify.txt` in public directory. 256-bit cryptographic token with 7-day expiration and origin matching. | `VALIDATED` |
-| **DBT-006** | RQI Scoring | Preventing incomplete scans from scoring 50% or masking security flaws? | Critical | Tripartite RQI Model: Independent Hard Release Gates (Pass/Fail) + Tested Quality Score (0–100) + Audit Coverage (0–100%). Any failed Hard Gate immediately yields `RELEASE_BLOCKED`. | `VALIDATED (ADR-016)` |
-| **DBT-007** | AI Grounding | Preventing AI assistant hallucinations and prompt injection? | Critical | Strict bounded context: AI receives structured JSON evidence only inside `<audit_payload>` delimiters. Regex scrubbing removes PII and API keys prior to prompt construction. | `VALIDATED (ADR-017)` |
-| **DBT-008** | Cloud DB | Supabase 7-day inactivity pause handling without artificial keep-alives? | Medium | Client-side health check detects paused database status and presents a clear "Database waking up, retrying..." banner rather than unhandled crash. | `VALIDATED` |
-| **DBT-009** | PageSpeed | Incomplete coverage & CrUX null data on staging previews? | Medium | PageSpeed explicitly labeled as "Synthetic Lab Metrics". CrUX field data null state gracefully handled. Combined with native security header & link crawlers. | `VALIDATED` |
-| **DBT-010** | Retention | Managing 500MB Supabase storage quota? | High | Tiered retention: Structured metrics & deductions kept permanently (<5KB/run). Base64 images stripped; raw Lighthouse JSON pruned after 7 days. | `VALIDATED (ADR-010)` |
-| **DBT-011** | Score Jitter | Lighthouse score variation between consecutive runs? | Medium | Changes $\le 5$ points classified as natural lab variance. Regressions require $>5$ point drop, $>15\%$ Web Vital drop, newly introduced console crash, or failed Hard Gate. | `VALIDATED` |
+| **DBT-001** | Product | Core identity and differentiation? | Critical | Web Application Testing, Bug Discovery, Evidence Collection, and Release-Readiness Platform. Combines automated audits with manual exploratory bug logging and retest verification. | `CONFIRMED (ADR-021)` |
+| **DBT-002** | Product | Application delivery format? | High | Responsive cloud-hosted SaaS web app (Desktop browsers + responsive mobile web). Native desktop/mobile apps deferred. | `CONFIRMED` |
+| **DBT-003** | Cloud Infra | Safe ₹0 execution without Vercel/GitHub AUP violations? | Critical | Vercel hosts Next.js UI/API; Cloudflare Worker runs Tier 2 link crawler; Google PageSpeed API runs lab vitals. Zero credit card required. | `VALIDATED (ADR-018)` |
+| **DBT-004** | Security | Browser worker network isolation & spend caps? | Critical | Tier 3 headless browser worker deferred to Post-MVP (v0.2.0) until live container network egress firewall is experimentally verified. Eliminates security and billing risks for MVP. | `DEFERRED TO v0.2.0` |
+| **DBT-005** | RQI Scoring | Integrating automated and manual findings into release readiness? | Critical | Tripartite Governance: Independent Hard Gates (Security + Critical Bug) + Tested Quality Score + Coverage %. Unresolved critical bugs immediately trigger `RELEASE_BLOCKED`. | `VALIDATED (ADR-020)` |
+| **DBT-006** | Manual Testing | Bug logging structure and lifecycle? | High | Structured bug logger with steps to reproduce, expected vs actual, telemetry, and evidence. 7-state lifecycle: `OPEN` $\to$ `ACKNOWLEDGED` $\to$ `IN_PROGRESS` $\to$ `FIXED` $\to$ `RETEST_REQUIRED` $\to$ `VERIFIED` / `REOPENED`. | `CONFIRMED` |
+| **DBT-007** | AI Assistant | AI assistant scope and safety? | Critical | Read-only, toolless Gemini Flash assistant summarizing technical logs and drafting developer bug briefs without hallucinating outcomes. | `VALIDATED (ADR-017)` |
+| **DBT-008** | Cloud DB | 500MB Supabase storage management? | Medium | Tiered retention: Metrics, deductions, and bug reports kept permanently (<5KB/run). Base64 images stripped; raw PageSpeed JSON pruned after 7 days. | `VALIDATED (ADR-010)` |

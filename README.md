@@ -1,25 +1,21 @@
 # ReleaseLens
 
-> **Cloud-Hosted Website Quality Auditing, RQI Scoring & Evidence-Backed Intelligence Platform**
+> **Cloud-Hosted Web Application Testing, Bug Discovery, Evidence Collection & Release-Readiness Platform**
 
 ---
 
-## 1. Project Overview & Scope
+## 1. Project Overview & Mission
 
-**ReleaseLens** is a cloud-based website quality auditing and release intelligence platform. It enables developers, engineering leads, and product teams to register web applications (including preview/staging deployments on `*.vercel.app`), execute deep cloud-hosted quality audits, compute a transparent **ReleaseLens Quality Index (RQI)** score, track historical quality trends, and converse with an evidence-grounded AI assistant.
+**ReleaseLens** empowers testers, QA engineers, and hackathon builders to test web applications, discover and log bugs with rich evidence, generate developer-ready reports, verify fixes through retesting, and track release readiness with the **ReleaseLens Quality Index (RQI)**.
 
-### Key Tenets
-1. **Zero Local Machine Dependency**: 100% cloud-hosted. No local database, local Docker daemon, local CLI, or machine-local browser workers required.
-2. **100% Guaranteed ₹0 Budget (Zero Credit Card Required)**: Architected exclusively on verified free-tier services that enforce hard limits without auto-billing (Vercel, Supabase, Google PageSpeed API, Google Gemini API, Cloudflare Workers).
-3. **Rigorous Three-Tier Security**:
-   - **Tier 1 (Public Scan)**: Passive inspection: TLS/SSL validity, security headers, Core Web Vitals via Google PageSpeed API.
-   - **Tier 2 (Verified Ownership)**: Internal link crawl (detects 404/500 routes up to 15 pages via isolated Cloudflare Worker; requires meta-tag or `.well-known` token verification).
-   - **Tier 3 (Headless Browser Worker)**: Deferred to Post-MVP (v0.2.0) pending live container network egress firewall validation.
-4. **Tripartite RQI Governance**:
-   - Independent Hard Release Gates (`PASS`, `FAIL`, `NOT_RUN`, `INCONCLUSIVE`).
-   - Tested Quality Score ($S_{\text{quality}}$: 0–100).
-   - Audit Coverage Completeness ($C_{\text{audit}}$: 0–100%).
-5. **Evidence-Grounded AI Assistant**: Answers user questions based strictly on recorded audit logs and network traces, with zero hallucinations.
+### The Unified QA & Developer Handoff Workflow
+1. **Register Projects**: Support custom domains and ephemeral staging URLs (e.g. `*.vercel.app` preview deployments).
+2. **Automated Bounded Audits**: Verify availability, TLS/HTTPS validity, security headers, internal broken links (up to 15 pages), and Core Web Vitals.
+3. **Manual Exploratory Testing**: Log bugs with structured steps to reproduce, expected vs. actual behavior, severity, browser/device telemetry, and screenshot evidence.
+4. **Developer-Ready Handoff**: Generate clean, actionable bug briefs with permalinks and export options so developers can fix issues immediately.
+5. **Retest Lifecycle**: Track issues through `OPEN` $\to$ `ACKNOWLEDGED` $\to$ `IN_PROGRESS` $\to$ `FIXED` $\to$ `RETEST_REQUIRED` $\to$ `VERIFIED` (or `REOPENED`).
+6. **Release Deltas & RQI Scoring**: Measure release readiness combining automated health and unresolved bug severity into an objective, defensible index.
+7. **Evidence AI Assistant**: A read-only, toolless assistant that synthesizes technical findings and bug briefs without hallucinating outcomes.
 
 ---
 
@@ -28,14 +24,15 @@
 All documentation is maintained in continuous synchronization with project reality:
 
 - [docs/PROJECT_SPEC.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/PROJECT_SPEC.md) — Final confirmation-ready MVP specification.
-- [docs/PRD.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/PRD.md) — Product requirements and acceptance criteria.
-- [docs/ARCHITECTURE_VALIDATION.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/ARCHITECTURE_VALIDATION.md) — Detailed evidence-based feasibility audit (Round 5).
+- [docs/PRD.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/PRD.md) — Product requirements and user journeys.
 - [docs/ARCHITECTURE.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/ARCHITECTURE.md) — Decoupled cloud architecture and provider topology.
-- [docs/RQI_SCORING.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/RQI_SCORING.md) — Tripartite RQI formulas, 4-state hard gates, and worked examples.
-- [docs/CLOUD_WORKER.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/CLOUD_WORKER.md) — Cloudflare Worker Tier 2 Crawler design and limits.
-- [docs/SECURITY.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/SECURITY.md) — Domain verification, SSRF defense, and crawler boundaries.
+- [docs/DATA_MODEL.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/DATA_MODEL.md) — Entity-relationship schema for projects, audits, bugs, and evidence.
+- [docs/API_CONTRACTS.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/API_CONTRACTS.md) — REST endpoints, payloads, and AI assistant schemas.
+- [docs/RQI_SCORING.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/RQI_SCORING.md) — Tripartite RQI formulas combining automated checks and manual bug severity.
+- [docs/TEST_STRATEGY.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/TEST_STRATEGY.md) — Empirical verification and test matrix.
+- [docs/SECURITY.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/SECURITY.md) — Domain verification, SSRF defense, and data boundaries.
 - [docs/PRIVACY_AND_RETENTION.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/PRIVACY_AND_RETENTION.md) — Deny-by-default allowlist evidence sanitization.
-- [docs/DOUBT_REGISTER.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/DOUBT_REGISTER.md) — Master pre-implementation doubt and workflow register.
-- [docs/DECISIONS.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/DECISIONS.md) — Architecture Decision Records (ADR-001 through ADR-020).
-- [docs/ROADMAP.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/ROADMAP.md) — Multi-phase deliverables (MVP v0.1.0 vs v0.2.0).
+- [docs/ROADMAP.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/ROADMAP.md) — Delivery phases (MVP v0.1.0 vs Post-MVP v0.2.0).
+- [docs/DECISIONS.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/DECISIONS.md) — Architecture Decision Records (ADR-001 through ADR-021).
+- [docs/DOUBT_REGISTER.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/DOUBT_REGISTER.md) — Master pre-implementation doubt register.
 - [docs/TEST_RESULTS.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/TEST_RESULTS.md) — Empirical test logs (currently `NOT RUN`).

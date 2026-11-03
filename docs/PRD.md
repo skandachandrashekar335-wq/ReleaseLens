@@ -1,6 +1,6 @@
 # Product Requirements Document (PRD) — ReleaseLens
 
-> **Document Status**: `SYNCHRONIZED` / `FINAL DRAFT FOR APPROVAL (ROUND 5)`  
+> **Document Status**: `SYNCHRONIZED` / `RESET TO TESTING & BUG DISCOVERY PLATFORM`  
 > **Last Synchronized**: 2026-11-03  
 > **Target Release**: MVP v0.1.0  
 
@@ -8,48 +8,117 @@
 
 ## 1. Executive Summary
 
-**ReleaseLens** is a cloud-hosted website quality auditing and release intelligence platform. It enables developers, engineering leads, and QA teams to register web applications (including preview/staging deployments on `*.vercel.app`), execute deep cloud quality audits across performance, accessibility, security headers, and link health, compute an objective **ReleaseLens Quality Index (RQI)**, track release regressions, and query an evidence-backed conversational AI assistant.
+**ReleaseLens** is a cloud-hosted **Web Application Testing, Bug Discovery, Evidence Collection, and Release-Readiness Platform**.
+
+It bridges the painful gap between quality assurance and software development by empowering testers, QA engineers, and hackathon builders to:
+1. Register web applications across production, staging, and preview environments (including `*.vercel.app` preview deployments).
+2. Execute automated quality audits (availability, TLS, security headers, broken links, HTTP status codes, performance).
+3. Conduct structured manual exploratory testing, logging bugs with reproduction steps, environment telemetry, and evidence.
+4. Generate developer-ready bug reports with clear reproduction steps, technical evidence, and actionable next steps.
+5. Track issues through a verification lifecycle (`Open` $\to$ `Acknowledged` $\to$ `In Progress` $\to$ `Fixed` $\to$ `Retest Required` $\to$ `Verified` / `Reopened`).
+6. Measure release health via the **ReleaseLens Quality Index (RQI)** and track regression deltas across retests.
+7. Consult an evidence-grounded, read-only AI assistant to synthesize bug briefs and interpret test results without hallucinations.
 
 ---
 
-## 2. Core Constraints & Guiding Principles
+## 2. Target Personas & Core User Journeys
 
-1. **Pure Cloud-First (Zero Machine-Local Dependency)**:
-   - No local database, no local Docker containers, and no machine-local Playwright runners.
-   - All persistence, workers, and dashboard functions operate on cloud infrastructure.
-2. **100% Guaranteed ₹0 Budget (Zero Credit Card Required)**:
-   - Built exclusively on generous free-tier platforms that do not require credit cards and enforce hard stops on limits (Vercel, Supabase, Google PageSpeed API, Google AI Studio Gemini API, Cloudflare Workers).
-3. **Rigorous Gating & Authorization Boundaries**:
-   - Submitting a URL grants permission **only** for passive Tier 1 scans.
-   - Tier 2 active crawling is strictly gated behind domain ownership verification (HTML `<meta>` tag or `/.well-known/releaselens-verify.txt`).
-   - Tier 3 headless browser checks are deferred to v0.2.0 until network egress containment is experimentally verified.
-4. **Evidence-Grounded AI Assistant**:
-   - Strictly read-only and toolless. Answers queries using verified audit logs only, refusing to fabricate test outcomes.
+### 2.1 Target Personas
+- **The QA / Hackathon Tester (Primary Persona)**: Exploring new builds, discovering broken forms, broken buttons, authentication drops, and layout defects; needs to quickly log bugs with evidence and hand them to developers.
+- **The Full-Stack Developer**: Needs reproducible bug reports with environment details, exact failure steps, and clear verification criteria—not vague Slack messages.
+- **The Tech Lead / Release Manager**: Needs an objective Release-Readiness verdict (RQI) combining automated test health and manual exploratory bug counts before promoting code to production.
 
----
-
-## 3. Detailed MVP Feature Matrix
-
-| Feature | Scope / Tier | Status | Acceptance Criteria |
-| :--- | :--- | :--- | :--- |
-| **Google Sign-In** | Platform | `PLANNED` | Google OAuth via Supabase Auth; persists sessions securely. |
-| **Website Management** | Platform | `PLANNED` | Add, view, edit, and delete registered domains with environment tags (`PRODUCTION` vs `PREVIEW`). |
-| **Ownership Verification** | Platform | `PLANNED` | Validates 256-bit token via HTML `<meta>` tag or `/.well-known/releaselens-verify.txt` with origin matching. |
-| **Tier 1 Public Audits** | Core Audit | `PLANNED` | TLS certificate validity/expiry, HTTP security headers, Google PageSpeed lab metrics, mobile viewport, robots.txt. |
-| **Tier 2 Link Crawl** | Core Audit | `PLANNED` | Crawls up to 15 internal links via Cloudflare Worker; detects 404/500 routes. |
-| **Tripartite RQI Model** | Intelligence | `PLANNED` | Computes Hard Release Gates, Tested Quality Score (0–100), and Audit Coverage %. |
-| **Release Delta ($\Delta$)** | Analytics | `PLANNED` | Flags regressions (>5 pt drop, >15% Web Vital drop, newly missing header) against previous run. |
-| **Conversational AI** | Intelligence | `PLANNED` | Read-only Gemini Flash assistant citing exact audit logs with delimited prompt isolation. |
-| **Report Export** | Usability | `PLANNED` | Export audit summary as Markdown, JSON, or copyable permalink. |
+### 2.2 End-to-End User Journey
+```mermaid
+flowchart TD
+    A["1. Sign In (Google OAuth)"] --> B["2. Register Project / Target URL"]
+    B --> C["3. Run Automated Audit (Tier 1 & Tier 2)"]
+    C --> D["4. Perform Manual Exploratory Testing"]
+    D --> E["5. Log Bugs with Steps, Screenshots & Telemetry"]
+    E --> F["6. Generate Developer-Ready Bug Reports"]
+    F --> G["7. Share Findings with Developer (Permalink / Export)"]
+    G --> H["8. Developer Fixes Issue -> Marks 'Retest Required'"]
+    H --> I["9. Tester Retests -> Verifies or Reopens"]
+    I --> J["10. Compare Subsequent Audit & View Release Delta"]
+```
 
 ---
 
-## 4. Operational Quotas & Rate Limits
+## 3. Detailed MVP Feature Specifications
 
-- **Per-User Quotas**: Max 5 audits per day; max 10 AI assistant questions per hour.
-- **Provider Quota Ceilings**:
-  - Vercel: 100,000 invocations / month.
-  - Supabase: 500 MB database storage.
-  - Google PageSpeed: 25,000 queries / day.
-  - Cloudflare Workers: 100,000 requests / day.
-  - Google Gemini Flash: 15 RPM / 1,500 RPD.
+### Module A: Authentication & Workspace
+- **Google OAuth Sign-In**: Powered by Supabase Auth with secure HTTP-only cookies.
+- **User Projects**: Users create and own projects (e.g. "E-Commerce Hackathon App").
+- **Environment Tagging**: Support `PRODUCTION`, `STAGING`, and `PREVIEW` environments.
+- **Tenant Isolation**: Row-Level Security (RLS) ensures users only access their own projects, audits, and bug reports.
+
+### Module B: Project Registration
+- Project name and target URL (full support for custom domains and `*.vercel.app` preview URLs).
+- Authorized testing scope definition (bounds URL crawling to the declared domain).
+- Historical audit log and active bug list per project.
+
+### Module C: Automated Website Testing
+Bounded, evidence-backed automated checks:
+- **Availability & HTTP Status**: Server uptime and response code.
+- **TLS & HTTPS**: Certificate validity, expiration countdown, HTTPS enforcement.
+- **Security Headers**: HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy.
+- **Broken Links & Navigation**: Internal link crawler detecting 404/500 routes up to 15 pages.
+- **Performance & Vitals**: Core Web Vitals and Lighthouse metrics via Google PageSpeed Insights REST API.
+- **Accessibility & Metadata**: Mobile viewport, title, robots.txt, basic ARIA sanity.
+- **Standard State Output**: Every automated check reports strictly `PASS`, `FAIL`, `NOT_RUN`, or `INCONCLUSIVE`.
+
+### Module D: Manual Exploratory Testing (Core MVP Feature)
+Structured bug logging interface allowing testers to record:
+- **Bug Title & Description**.
+- **Affected URL / Route**.
+- **Steps to Reproduce** (ordered numbered list).
+- **Expected Result vs. Actual Result**.
+- **Severity**: `CRITICAL` (blocks core flow/auth), `HIGH` (feature broken), `MEDIUM` (functional flaw with workaround), `LOW` (cosmetic/minor).
+- **Environment Telemetry**: Browser name/version, OS, screen viewport size, network type.
+- **Evidence / Attachments**: Screenshot upload / image URL, error console snippet, network payload snippet.
+- **Developer Notes & Workaround**: Optional notes to assist debugging.
+- **Status Workflow**: `OPEN` $\to$ `ACKNOWLEDGED` $\to$ `IN_PROGRESS` $\to$ `FIXED` $\to$ `RETEST_REQUIRED` $\to$ `VERIFIED` (or `REOPENED`).
+
+### Module E: Evidence & Developer Handoff
+- Clean, structured bug summary view designed for engineers.
+- Actionable next steps highlighted (e.g. *"Fix CORS header on `/api/login`"*, *"Correct Z-index on modal button"*).
+- Shareable bug permalinks and export to Markdown / JSON.
+
+### Module F: Retesting & Regression Comparison
+- "Retest Bug" action: Tester directly validates whether a bug marked `FIXED` is genuinely resolved.
+- Subsequent audit comparison: Automatically computes Release Delta ($\Delta$):
+  - Change in RQI score.
+  - Newly introduced broken links.
+  - Regressed Core Web Vitals.
+  - Count of newly opened vs. resolved bugs.
+
+### Module G: Tripartite RQI (Release Quality Index)
+Evidence-backed release readiness index combining:
+1. **Hard Release Gates** (`PASS`, `FAIL`, `NOT_RUN`, `INCONCLUSIVE`):
+   - Critical Security Gate (TLS valid, HTTPS enforced, Clickjacking protected).
+   - Functional Bug Gate (Zero `CRITICAL` unresolved bugs).
+2. **Tested Quality Score ($S_{\text{quality}}$)**: 0–100 score across executed automated checks and bug deductions.
+3. **Audit Coverage Completeness ($C_{\text{audit}}$)**: Percentage of testable surface evaluated.
+4. **Verdicts**: `VERIFIED_READY`, `PROVISIONAL_PASS`, `REVIEW_REQUIRED`, `RELEASE_BLOCKED`.
+
+### Module H: Evidence-Grounded AI Assistant
+- Read-only, toolless assistant (powered by Google Gemini Flash API via AI Studio free tier).
+- Summarizes technical logs and formats developer bug reports.
+- Distinguishes automated findings from tester-submitted exploratory bugs.
+- Cites exact audit evidence; **never invents reproduction results or claims an unverified bug is fixed**.
+
+---
+
+## 4. Scope Boundaries & Deferred Features
+
+### In Scope for MVP (v0.1.0)
+- SaaS Web Application (Desktop browser + responsive mobile web).
+- Modules A through H described above.
+- Tier 1 & Tier 2 automated audits (PageSpeed API + Cloudflare Worker link crawler).
+
+### Explicitly Deferred to Post-MVP (v0.2.0+)
+- ⏳ Native desktop (Windows EXE, macOS DMG) or mobile (Android/iOS) apps.
+- ⏳ Full automated headless authenticated browser testing (Cloud Run container worker).
+- ⏳ Direct GitHub/Jira two-way issue sync.
+- ⏳ Continuous 24/7 background cron monitoring.
+- ⏳ Autonomous AI testing agents.
