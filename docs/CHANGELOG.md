@@ -7,10 +7,10 @@ All notable changes to the ReleaseLens project will be documented in this file.
 ## [Unreleased] - 2026-11-03
 
 ### Changed
-- Re-evaluated and rejected GitHub Actions as a cloud browser worker due to AUP multi-tenant SaaS compliance and minute-rounding costs (ADR-011 rejected, replaced by ADR-014).
-- Established native serverless link crawler for Tier 2 and decoupled Google Cloud Run ephemeral container runner for Tier 3 headless execution (ADR-014).
-- Hardened browser network security using Playwright universal route interception (`page.route('**/*')`) for anti-rebind, subresource IP pinning, and egress restriction (ADR-015).
-- Replaced flawed multiplicative RQI coverage formula with Tripartite RQI Governance: Independent Hard Release Gates + Tested Quality Score + Audit Coverage % (ADR-016).
-- Formulated secret scrubbing pipeline and delimited prompt isolation for AI assistant (ADR-017).
-- Created comprehensive [docs/ARCHITECTURE_VALIDATION.md](file:///Users/skandachandrashekar335/projects/ReleaseLens/docs/ARCHITECTURE_VALIDATION.md).
-- Updated doubt register and synchronized all architecture and scoring specifications.
+- Reassessed Vercel Hobby suitability; decoupled external URL crawling from Vercel to maintain 100% compliance with Vercel Fair Use terms (ADR-018).
+- Recalculated Cloud Run capacity: Identified that GCP Free Tier applies strictly to Tier 1 regions (`us-central1`), with zero free allowance in India (`asia-south1`). Capped browser audits at 1,100 runs/month to guarantee zero egress charges.
+- Implemented multi-layered zero-spend safeguards (application token bucket + programmatic GCP billing disablement via Cloud Function Pub/Sub).
+- Corrected RQI Hard-Gate state logic: Defined 4 formal states (`PASS`, `FAIL`, `NOT_RUN`, `INCONCLUSIVE`). Enforced that `NOT_RUN` gates never count as `PASS` and that `FAIL` unconditionally triggers `RELEASE_BLOCKED` (ADR-020).
+- Enhanced browser network isolation: Combined kernel `iptables` egress firewall (dropping private IPs, metadata, and WebRTC UDP) with Playwright route interception (ADR-019).
+- Established deny-by-default allowlist evidence collection and toolless read-only AI prompt isolation.
+- Synchronized all documentation across `docs/` and committed to source control.

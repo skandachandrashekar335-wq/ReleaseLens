@@ -20,67 +20,56 @@
 | **ADR-009** | Safe Authentication Verification via OAuth Contract & Route Probing | 2026-11-03 | `ACCEPTED` |
 | **ADR-010** | Tiered Evidence Retention Strategy for 500MB Free Database Cap | 2026-11-03 | `ACCEPTED` |
 | **ADR-011** | Hybrid Headless Runner: GitHub Actions Dispatch | 2026-11-03 | `REJECTED (AUP compliance & billing rounding)` |
-| **ADR-012** | Defense-in-Depth SSRF & Anti-Rebinding Architecture | 2026-11-03 | `ACCEPTED` |
-| **ADR-013** | Dual-Metric RQI Model: Multiplicative Coverage Formula | 2026-11-03 | `SUPERSEDED by ADR-016` |
-| **ADR-014** | Decoupled Worker Strategy: Native Serverless Crawler + Cloud Run Headless Worker | 2026-11-03 | `ACCEPTED` |
-| **ADR-015** | Browser Network Security via Playwright Universal Route Interception | 2026-11-03 | `ACCEPTED` |
-| **ADR-016** | Tripartite RQI Governance: Hard Release Gates + Tested Quality + Coverage % | 2026-11-03 | `ACCEPTED` |
+| **ADR-012** | Defense-in-Depth SSRF & Anti-Rebinding Architecture | 2026-11-03 | `SUPERSEDED by ADR-019` |
+| **ADR-013** | Dual-Metric RQI Model: Multiplicative Coverage Formula | 2026-11-03 | `SUPERSEDED by ADR-016 & ADR-020` |
+| **ADR-014** | Decoupled Worker Strategy: Native Serverless Crawler + Cloud Run Headless Worker | 2026-11-03 | `SUPERSEDED by ADR-018` |
+| **ADR-015** | Browser Network Security via Playwright Universal Route Interception | 2026-11-03 | `SUPERSEDED by ADR-019` |
+| **ADR-016** | Tripartite RQI Governance: Hard Release Gates + Tested Quality + Coverage % | 2026-11-03 | `SUPERSEDED by ADR-020` |
 | **ADR-017** | Deterministic PII / Secret Scrubbing & Delimited AI Prompt Isolation | 2026-11-03 | `ACCEPTED` |
+| **ADR-018** | Decoupling Crawler from Vercel to Comply with Vercel Hobby Terms | 2026-11-03 | `ACCEPTED` |
+| **ADR-019** | Two-Tier Browser Isolation: Kernel Egress Firewall + Playwright Interception | 2026-11-03 | `ACCEPTED` |
+| **ADR-020** | Formal Four-State Hard-Gate Model (`PASS`, `FAIL`, `NOT_RUN`, `INCONCLUSIVE`) | 2026-11-03 | `ACCEPTED` |
 
 ---
 
-## ADR-014: Decoupled Worker Strategy: Native Serverless Crawler + Cloud Run Headless Worker
+## ADR-018: Decoupling Crawler from Vercel to Comply with Vercel Hobby Terms
 
 ### Context
-GitHub Actions was evaluated in ADR-011 as a free runner. However, rigorous examination reveals:
-1. GitHub Actions Acceptable Use Policy prohibits using actions as a public multi-tenant SaaS computing backend.
-2. Billing-minute rounding consumes full minutes for short 15-second jobs.
-3. Queue latencies (15–60s) degrade interactive dashboard responsiveness.
+Vercel's Fair Use Guidelines and Terms of Service restrict the Hobby plan to personal and non-commercial websites. Automated crawling or scraping of third-party user-submitted URLs through Vercel Serverless Functions violates Vercel's fair use policy and triggers automated abuse detection and suspension.
 
 ### Decision
-1. **Tier 1 (Public Probes) & Tier 2 (Internal Link Crawler)**: Implemented natively in Node.js within Vercel Serverless Functions. Crawling 15 pages via `fetch` + `cheerio` executes in $<1.5$ seconds with zero Chromium binary overhead.
-2. **Tier 3 (Headless Browser & Auth Verifications)**: Executed in an isolated container runner on **Google Cloud Run** free tier (2M requests/mo, 360,000 vCPU-seconds/mo free) or user-configured endpoint.
-
-### Consequences
-- **Positive**: 100% compliant with provider terms; zero AUP risk; instant link audits on Vercel; true container isolation on Cloud Run.
+1. **Frontend Dashboard & API**: Hosted on Vercel Hobby (Next.js). Strictly handles UI rendering, user authentication, audit history display, and client-facing endpoints.
+2. **Auditing & Crawling Engine**: Decoupled completely from Vercel. Runs within dedicated container workers on **Google Cloud Run** (`us-central1` free tier) or Cloudflare Workers.
 
 ---
 
-## ADR-015: Browser Network Security via Playwright Universal Route Interception
+## ADR-019: Two-Tier Browser Isolation: Kernel Egress Firewall + Playwright Interception
 
 ### Context
-Pinning socket connections in the parent Node process does not prevent untrusted JavaScript running inside a headless Chromium page from issuing background fetches, WebSockets, or iframes to internal cloud metadata (`169.254.169.254`) or loopback services.
+Playwright application-level route interception (`page.route`) does not intercept native WebRTC UDP connections or native socket rebinding. A compromised page or malicious script inside headless Chrome could probe internal cloud metadata (`169.254.169.254`) or local network resources.
 
 ### Decision
-Enforce network containment inside Playwright using `page.route('**/*')`:
-- Every request (navigation, script, stylesheet, image, fetch, XHR, iframe, websocket) is intercepted.
-- Destination URL protocol, port (80/443 only), and resolved IP address are validated against the private/metadata IP blacklist before `route.continue()`.
-- Service workers, file downloads, and device access are disabled at the browser context level.
+Enforce a two-tier perimeter:
+1. **Infrastructure / Container Layer**: Linux `iptables` rules drop all outbound traffic to private subnets (RFC-1918), loopback, and cloud metadata (`169.254.169.254`). All outbound UDP traffic is blocked except port 53 (DNS), eliminating WebRTC leakage.
+2. **Application / Playwright Layer**: `page.route('**/*')` restricts protocols to HTTP/HTTPS, restricts destination ports to 80/443, and disables service workers, downloads, and device permissions.
 
 ---
 
-## ADR-016: Tripartite RQI Governance: Hard Release Gates + Tested Quality + Coverage %
+## ADR-020: Formal Four-State Hard-Gate Model (`PASS`, `FAIL`, `NOT_RUN`, `INCONCLUSIVE`)
 
 ### Context
-The previous multiplicative formula ($RQI = S_{\text{tested}} \times (0.5 + 0.5 \times C)$) assigned a 50% score to an audit with zero coverage, and allowed a 100% performance score to mask critical security defects.
+Previously, `NOT_RUN` gates were ambiguously treated as passes during Tier 1 audits, allowing provisional passes to be confused with verified readiness. Furthermore, the 14-day TLS threshold was arbitrary.
 
 ### Decision
-Adopt **Tripartite RQI Governance**:
-1. **Independent Hard Release Gates (Pass/Fail)**:
-   - Security Gate (TLS valid, HTTPS enforced, Clickjacking protected).
-   - Functional Gate (Zero page-crashing JS errors).
-   - Auth Gate (OAuth contract intact, callback route valid).
-   *If ANY Hard Gate fails, Release Verdict is immediately `RELEASE_BLOCKED`, regardless of numerical quality.*
-2. **Tested Quality Index ($S_{\text{quality}}$)**: 0–100 weighted score calculated strictly over executed categories.
-3. **Audit Coverage ($C_{\text{audit}}$)**: 0–100% evaluated test surface.
-
----
-
-## ADR-017: Deterministic PII / Secret Scrubbing & Delimited AI Prompt Isolation
-
-### Context
-Inspected website logs, HTML snippets, and error traces may contain sensitive tokens, passwords, or malicious prompt injection instructions intended to manipulate the conversational AI assistant into falsely reporting release readiness.
-
-### Decision
-1. Deterministic regex scrubbing strips Bearer tokens, JWTs, API keys, password query parameters, and session cookies before storage or AI ingestion.
-2. Audit evidence is passed to Google Gemini Flash API inside delimited boundary tags (`<audit_payload>`) with explicit system instructions treating external logs as untrusted raw text data.
+1. **Four States**: Every hard gate must resolve to one of `PASS`, `FAIL`, `NOT_RUN`, or `INCONCLUSIVE`.
+2. **State Rules**:
+   - `NOT_RUN` gates **never** count as `PASS`.
+   - Any `FAIL` gate results in immediate **`RELEASE_BLOCKED`**, regardless of numerical quality score.
+   - Any `INCONCLUSIVE` gate results in **`REVIEW_REQUIRED`**.
+   - **`VERIFIED_READY`** requires all 3 gates to be `PASS`, with $S_{\text{quality}} \ge 85$ and $C_{\text{audit}} = 100\%$.
+   - **`PROVISIONAL_PASS`** indicates no blockers were detected in executed checks, but explicitly states unrun gates remain unverified.
+3. **Calibrated TLS Expiry**:
+   - $\le 0$ days (Expired): `FAIL` (Hard Gate Blocker).
+   - $1 \text{--} 2$ days (Imminent failure): `FAIL` (Hard Gate Blocker).
+   - $3 \text{--} 14$ days: Non-blocking warning deduction (-5 pts).
+   - $> 14$ days: `PASS`.
