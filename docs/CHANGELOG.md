@@ -7,8 +7,8 @@ All notable changes to the ReleaseLens project will be documented in this file.
 ## [Unreleased] - 2026-11-03
 
 ### Changed
-- Executed Product Direction Reset: Positioned ReleaseLens as a **cloud-hosted Web Application Testing, Bug Discovery, Evidence Collection, and Release-Readiness Platform** (ADR-021).
-- Unfied automated quality audits with manual exploratory bug logging and evidence capture.
-- Designed 7-state bug verification lifecycle: `OPEN` $\to$ `ACKNOWLEDGED` $\to$ `IN_PROGRESS` $\to$ `FIXED` $\to$ `RETEST_REQUIRED` $\to$ `VERIFIED` / `REOPENED`.
-- Updated Tripartite RQI scoring: Unresolved critical bugs immediately trip `GATE_FUNCTIONAL = FAIL`, triggering `RELEASE_BLOCKED`.
-- Synchronized all documentation across `docs/`, `README.md`, and `AGENTS.md`.
+- Finalized Unified Core Workflow: **Automate First, Human Review Second** (`URL` $\to$ `AUTOMATED AUDIT` $\to$ `FINDINGS INBOX` $\to$ `HUMAN TRIAGE` $\to$ `CONFIRMED BUGS` $\to$ `DEVELOPER HANDOFF` $\to$ `RETEST`) (ADR-022).
+- Established 6-state Potential Findings lifecycle: `DETECTED` $\to$ `NEEDS_REVIEW` $\to$ `CONFIRMED` $\mid$ `REJECTED` $\mid$ `DUPLICATE` $\mid$ `ACCEPTED_RISK`.
+- Established Dual Reporting Engine: Report A (Technical Audit Report) and Report B (Human-Reviewed Defect Report).
+- Decoupled unreviewed potential findings from confirmed bugs in RQI gating: Only `CONFIRMED` critical bugs trip hard functional gates; unreviewed findings prevent `VERIFIED_READY` until triaged (ADR-023).
+- Synchronized all documentation across `docs/`, `README.md`, and committed to source control.

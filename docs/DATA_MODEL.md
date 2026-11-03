@@ -1,6 +1,6 @@
 # Data Model & Schema — ReleaseLens
 
-> **Document Status**: `SYNCHRONIZED` / `RESET TO TESTING & BUG DISCOVERY PLATFORM`  
+> **Document Status**: `SYNCHRONIZED` / `AUTOMATE FIRST, HUMAN REVIEW SECOND`  
 > **Last Synchronized**: 2026-11-03  
 
 ---
@@ -12,7 +12,9 @@ erDiagram
     USER ||--o{ PROJECT : owns
     PROJECT ||--o{ AUDIT_RUN : undergoes
     AUDIT_RUN ||--o{ AUTOMATED_CHECK : records
+    AUDIT_RUN ||--o{ POTENTIAL_FINDING : discovers
     AUDIT_RUN ||--|| RQI_SCORE : evaluates
+    POTENTIAL_FINDING |o--o| BUG_REPORT : converts_to
     PROJECT ||--o{ BUG_REPORT : tracks
     BUG_REPORT ||--o{ BUG_EVIDENCE : contains
     BUG_REPORT ||--o{ RETEST_HISTORY : logs
@@ -23,7 +25,6 @@ erDiagram
         string email
         string display_name
         string avatar_url
-        datetime created_at
     }
 
     PROJECT {
@@ -34,8 +35,6 @@ erDiagram
         string environment "PRODUCTION | STAGING | PREVIEW"
         boolean is_verified
         string verification_token
-        datetime created_at
-        datetime updated_at
     }
 
     AUDIT_RUN {
@@ -44,7 +43,6 @@ erDiagram
         string target_url
         string audit_tier "TIER_1_PUBLIC | TIER_2_VERIFIED"
         string status "QUEUED | RUNNING | COMPLETED | FAILED"
-        datetime started_at
         datetime completed_at
     }
 
@@ -55,24 +53,31 @@ erDiagram
         string check_name
         string status "PASS | FAIL | NOT_RUN | INCONCLUSIVE"
         json raw_evidence
-        string error_message
     }
 
-    RQI_SCORE {
+    POTENTIAL_FINDING {
         uuid id PK
         uuid audit_run_id FK
-        string release_verdict "VERIFIED_READY | PROVISIONAL_PASS | REVIEW_REQUIRED | RELEASE_BLOCKED"
-        float quality_score
-        float coverage_percent
-        string gate_security "PASS | FAIL | NOT_RUN | INCONCLUSIVE"
-        string gate_functional "PASS | FAIL | NOT_RUN | INCONCLUSIVE"
-        json factor_breakdown
+        uuid project_id FK
+        string test_source "LINK_CRAWLER | SECURITY_PROBE | CONSOLE_SNIFFER | PAGESPEED"
+        string affected_url
+        string description
+        string expected_behavior
+        string observed_behavior
+        string recommended_severity "CRITICAL | HIGH | MEDIUM | LOW"
+        string confidence "HIGH | MEDIUM | LOW"
+        json evidence_payload
+        string status "DETECTED | NEEDS_REVIEW | CONFIRMED | REJECTED | DUPLICATE | ACCEPTED_RISK"
+        string triage_notes
+        uuid converted_bug_id FK
+        datetime created_at
     }
 
     BUG_REPORT {
         uuid id PK
         uuid project_id FK
         uuid user_id FK
+        uuid source_finding_id FK
         string title
         string description
         string affected_url
@@ -92,7 +97,6 @@ erDiagram
         uuid bug_report_id FK
         string evidence_type "SCREENSHOT | CONSOLE_LOG | NETWORK_TRACE"
         string file_url_or_text
-        datetime captured_at
     }
 
     RETEST_HISTORY {
@@ -101,15 +105,21 @@ erDiagram
         uuid user_id FK
         string previous_status
         string new_status
+        string tester_verdict "PASS | FAIL | INCONCLUSIVE"
         string tester_comment
         datetime retested_at
     }
 
-    CHAT_SESSION {
+    RQI_SCORE {
         uuid id PK
-        uuid project_id FK
-        uuid user_id FK
-        datetime created_at
+        uuid audit_run_id FK
+        string release_verdict "VERIFIED_READY | PROVISIONAL_PASS | REVIEW_REQUIRED | RELEASE_BLOCKED"
+        float quality_score
+        float coverage_percent
+        string gate_security "PASS | FAIL | NOT_RUN | INCONCLUSIVE"
+        string gate_functional "PASS | FAIL | NOT_RUN | INCONCLUSIVE"
+        int open_findings_count
+        int confirmed_bugs_count
     }
 ```
 
@@ -119,6 +129,6 @@ erDiagram
 
 All tables enforce strict Row-Level Security:
 1. **`PROJECT`**: Select/Insert/Update/Delete where `user_id = auth.uid()`.
-2. **`BUG_REPORT` & `BUG_EVIDENCE`**: Access scoped to projects owned by `auth.uid()`, OR viewable via public read-only share token if the owner generates a shareable report permalink.
+2. **`POTENTIAL_FINDING` & `BUG_REPORT`**: Access scoped to projects owned by `auth.uid()`, OR viewable via public read-only share token if the owner generates a shareable report permalink.
 3. **`AUDIT_RUN` & `AUTOMATED_CHECK`**: Scoped to the parent project's owner.
 4. **`CHAT_SESSION`**: Strictly restricted to `auth.uid()`.

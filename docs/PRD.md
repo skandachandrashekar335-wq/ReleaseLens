@@ -1,124 +1,84 @@
 # Product Requirements Document (PRD) — ReleaseLens
 
-> **Document Status**: `SYNCHRONIZED` / `RESET TO TESTING & BUG DISCOVERY PLATFORM`  
+> **Document Status**: `SYNCHRONIZED` / `AUTOMATE FIRST, HUMAN REVIEW SECOND`  
 > **Last Synchronized**: 2026-11-03  
 > **Target Release**: MVP v0.1.0  
 
 ---
 
-## 1. Executive Summary
+## 1. Executive Summary & Core Paradigm
 
 **ReleaseLens** is a cloud-hosted **Web Application Testing, Bug Discovery, Evidence Collection, and Release-Readiness Platform**.
 
-It bridges the painful gap between quality assurance and software development by empowering testers, QA engineers, and hackathon builders to:
-1. Register web applications across production, staging, and preview environments (including `*.vercel.app` preview deployments).
-2. Execute automated quality audits (availability, TLS, security headers, broken links, HTTP status codes, performance).
-3. Conduct structured manual exploratory testing, logging bugs with reproduction steps, environment telemetry, and evidence.
-4. Generate developer-ready bug reports with clear reproduction steps, technical evidence, and actionable next steps.
-5. Track issues through a verification lifecycle (`Open` $\to$ `Acknowledged` $\to$ `In Progress` $\to$ `Fixed` $\to$ `Retest Required` $\to$ `Verified` / `Reopened`).
-6. Measure release health via the **ReleaseLens Quality Index (RQI)** and track regression deltas across retests.
-7. Consult an evidence-grounded, read-only AI assistant to synthesize bug briefs and interpret test results without hallucinations.
+It operates on a single unified workflow:
+$$\textbf{ENTER URL} \longrightarrow \textbf{AUTOMATED AUDIT} \longrightarrow \textbf{POTENTIAL FINDINGS} \longrightarrow \textbf{HUMAN TRIAGE} \longrightarrow \textbf{CONFIRMED BUGS} \longrightarrow \textbf{DEVELOPER HANDOFF} \longrightarrow \textbf{RETEST}$$
+
+Testers and hackathon builders are **not required to manually explore the website or write bug reports from scratch** to obtain actionable results. ReleaseLens automatically crawls routes, inspects buttons and forms, detects runtime console crashes and broken HTTP links, and surfaces **Potential Findings** into a **Findings Inbox** for human review. Once verified by a tester, findings convert into structured, developer-ready bug reports.
 
 ---
 
-## 2. Target Personas & Core User Journeys
+## 2. The Seven Core Workflow Modules
 
-### 2.1 Target Personas
-- **The QA / Hackathon Tester (Primary Persona)**: Exploring new builds, discovering broken forms, broken buttons, authentication drops, and layout defects; needs to quickly log bugs with evidence and hand them to developers.
-- **The Full-Stack Developer**: Needs reproducible bug reports with environment details, exact failure steps, and clear verification criteria—not vague Slack messages.
-- **The Tech Lead / Release Manager**: Needs an objective Release-Readiness verdict (RQI) combining automated test health and manual exploratory bug counts before promoting code to production.
+### Module 1: Automated Audit & Discovery (Automate First)
+When a user submits a project URL (including `*.vercel.app` preview environments):
+- **Page & Route Discovery**: Crawls internal links up to 15 pages via isolated Cloudflare Worker.
+- **Interactive Element Inspection**: Identifies buttons, links, forms, and inputs.
+- **Runtime Error Sniffer**: Detects unhandled JavaScript console exceptions and 4xx/5xx network failures.
+- **Security & Availability Probes**: Validates TLS certificate, HTTPS enforcement, and security headers (CSP, HSTS, X-Frame-Options).
+- **Performance & Vitals**: Google PageSpeed Insights REST API generates Core Web Vitals and Lighthouse metrics.
+- **Standard Check States**: Every check resolves to strictly `PASS`, `FAIL`, `NOT_RUN`, or `INCONCLUSIVE`.
 
-### 2.2 End-to-End User Journey
-```mermaid
-flowchart TD
-    A["1. Sign In (Google OAuth)"] --> B["2. Register Project / Target URL"]
-    B --> C["3. Run Automated Audit (Tier 1 & Tier 2)"]
-    C --> D["4. Perform Manual Exploratory Testing"]
-    D --> E["5. Log Bugs with Steps, Screenshots & Telemetry"]
-    E --> F["6. Generate Developer-Ready Bug Reports"]
-    F --> G["7. Share Findings with Developer (Permalink / Export)"]
-    G --> H["8. Developer Fixes Issue -> Marks 'Retest Required'"]
-    H --> I["9. Tester Retests -> Verifies or Reopens"]
-    I --> J["10. Compare Subsequent Audit & View Release Delta"]
-```
+### Module 2: Potential Findings Engine
+Automated checks do NOT create confirmed bugs directly. Instead, they populate the project's **Findings Inbox**.
+- **Finding States**: `DETECTED` $\to$ `NEEDS_REVIEW` $\to$ `CONFIRMED` $\mid$ `REJECTED` $\mid$ `DUPLICATE` $\mid$ `ACCEPTED_RISK`.
+- **Finding Data Contract**:
+  - Description & Affected URL.
+  - Test that produced the finding (e.g. `LinkCrawler`, `ConsoleTrap`, `SecurityProbe`).
+  - Expected vs. Observed behavior.
+  - Evidence (status code, console log snippet, network trace, screenshot where available).
+  - Reproduction instructions (auto-generated draft).
+  - Recommended severity (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`).
+  - Confidence rating (`HIGH`, `MEDIUM`, `LOW`) and known test oracle limitations.
 
----
+### Module 3: Human Review Dashboard (Findings Inbox)
+A dedicated triage inbox where testers can:
+- Inspect technical evidence and failure traces.
+- Reproduce the issue independently in their browser.
+- **Confirm as Bug**: Converts the finding into an official tracked Bug Report.
+- **Reject**: Dismisses false positives or intentional design quirks with tester rationale.
+- **Mark as Duplicate / Accepted Risk**: Triage without cluttering the defect list.
+- **Manual Bug Creation**: Optional button allowing testers to log issues the automated crawler missed.
 
-## 3. Detailed MVP Feature Specifications
+### Module 4: Confirmed Bug Lifecycle
+Confirmed bugs enter the official project defect tracker with a full state machine:
+$$\textbf{OPEN} \longrightarrow \textbf{ACKNOWLEDGED} \longrightarrow \textbf{IN\_PROGRESS} \longrightarrow \textbf{FIXED} \longrightarrow \textbf{RETEST\_REQUIRED} \longrightarrow \textbf{VERIFIED} \text{ (or } \textbf{REOPENED}\text{)}$$
+- Full support for reproduction steps, expected/actual outcomes, severity, environment telemetry, developer notes, and retest verification history.
 
-### Module A: Authentication & Workspace
-- **Google OAuth Sign-In**: Powered by Supabase Auth with secure HTTP-only cookies.
-- **User Projects**: Users create and own projects (e.g. "E-Commerce Hackathon App").
-- **Environment Tagging**: Support `PRODUCTION`, `STAGING`, and `PREVIEW` environments.
-- **Tenant Isolation**: Row-Level Security (RLS) ensures users only access their own projects, audits, and bug reports.
+### Module 5: Optional Deep Testing Configuration
+- Authorized users can configure dedicated test accounts and test role parameters for authenticated flows.
+- Extends the same automated pipeline rather than creating a separate product.
+- Test credentials are encrypted at rest and strictly excluded from logs, screenshots, and AI inputs.
 
-### Module B: Project Registration
-- Project name and target URL (full support for custom domains and `*.vercel.app` preview URLs).
-- Authorized testing scope definition (bounds URL crawling to the declared domain).
-- Historical audit log and active bug list per project.
+### Module 6: Dual Reporting Engine
+Every completed audit run produces two distinct, downloadable/shareable reports:
+1. **Report A: Technical Audit Report**:
+   - Checks executed, passed, failed, inconclusive, and untested counts.
+   - Core Web Vitals and technical metrics.
+   - Audit coverage percentage and test limitations.
+2. **Report B: Human-Reviewed Defect Report**:
+   - Confirmed bugs only.
+   - Severity distribution (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`).
+   - Detailed reproduction instructions and screenshots for developers.
+   - Retest verification status.
 
-### Module C: Automated Website Testing
-Bounded, evidence-backed automated checks:
-- **Availability & HTTP Status**: Server uptime and response code.
-- **TLS & HTTPS**: Certificate validity, expiration countdown, HTTPS enforcement.
-- **Security Headers**: HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy.
-- **Broken Links & Navigation**: Internal link crawler detecting 404/500 routes up to 15 pages.
-- **Performance & Vitals**: Core Web Vitals and Lighthouse metrics via Google PageSpeed Insights REST API.
-- **Accessibility & Metadata**: Mobile viewport, title, robots.txt, basic ARIA sanity.
-- **Standard State Output**: Every automated check reports strictly `PASS`, `FAIL`, `NOT_RUN`, or `INCONCLUSIVE`.
-
-### Module D: Manual Exploratory Testing (Core MVP Feature)
-Structured bug logging interface allowing testers to record:
-- **Bug Title & Description**.
-- **Affected URL / Route**.
-- **Steps to Reproduce** (ordered numbered list).
-- **Expected Result vs. Actual Result**.
-- **Severity**: `CRITICAL` (blocks core flow/auth), `HIGH` (feature broken), `MEDIUM` (functional flaw with workaround), `LOW` (cosmetic/minor).
-- **Environment Telemetry**: Browser name/version, OS, screen viewport size, network type.
-- **Evidence / Attachments**: Screenshot upload / image URL, error console snippet, network payload snippet.
-- **Developer Notes & Workaround**: Optional notes to assist debugging.
-- **Status Workflow**: `OPEN` $\to$ `ACKNOWLEDGED` $\to$ `IN_PROGRESS` $\to$ `FIXED` $\to$ `RETEST_REQUIRED` $\to$ `VERIFIED` (or `REOPENED`).
-
-### Module E: Evidence & Developer Handoff
-- Clean, structured bug summary view designed for engineers.
-- Actionable next steps highlighted (e.g. *"Fix CORS header on `/api/login`"*, *"Correct Z-index on modal button"*).
-- Shareable bug permalinks and export to Markdown / JSON.
-
-### Module F: Retesting & Regression Comparison
-- "Retest Bug" action: Tester directly validates whether a bug marked `FIXED` is genuinely resolved.
-- Subsequent audit comparison: Automatically computes Release Delta ($\Delta$):
-  - Change in RQI score.
-  - Newly introduced broken links.
-  - Regressed Core Web Vitals.
-  - Count of newly opened vs. resolved bugs.
-
-### Module G: Tripartite RQI (Release Quality Index)
-Evidence-backed release readiness index combining:
-1. **Hard Release Gates** (`PASS`, `FAIL`, `NOT_RUN`, `INCONCLUSIVE`):
-   - Critical Security Gate (TLS valid, HTTPS enforced, Clickjacking protected).
-   - Functional Bug Gate (Zero `CRITICAL` unresolved bugs).
-2. **Tested Quality Score ($S_{\text{quality}}$)**: 0–100 score across executed automated checks and bug deductions.
-3. **Audit Coverage Completeness ($C_{\text{audit}}$)**: Percentage of testable surface evaluated.
-4. **Verdicts**: `VERIFIED_READY`, `PROVISIONAL_PASS`, `REVIEW_REQUIRED`, `RELEASE_BLOCKED`.
-
-### Module H: Evidence-Grounded AI Assistant
-- Read-only, toolless assistant (powered by Google Gemini Flash API via AI Studio free tier).
-- Summarizes technical logs and formats developer bug reports.
-- Distinguishes automated findings from tester-submitted exploratory bugs.
-- Cites exact audit evidence; **never invents reproduction results or claims an unverified bug is fixed**.
-
----
-
-## 4. Scope Boundaries & Deferred Features
-
-### In Scope for MVP (v0.1.0)
-- SaaS Web Application (Desktop browser + responsive mobile web).
-- Modules A through H described above.
-- Tier 1 & Tier 2 automated audits (PageSpeed API + Cloudflare Worker link crawler).
-
-### Explicitly Deferred to Post-MVP (v0.2.0+)
-- ⏳ Native desktop (Windows EXE, macOS DMG) or mobile (Android/iOS) apps.
-- ⏳ Full automated headless authenticated browser testing (Cloud Run container worker).
-- ⏳ Direct GitHub/Jira two-way issue sync.
-- ⏳ Continuous 24/7 background cron monitoring.
-- ⏳ Autonomous AI testing agents.
+### Module 7: Tripartite RQI (Release Quality Index)
+- **Hard Release Gates** (`PASS`, `FAIL`, `NOT_RUN`, `INCONCLUSIVE`):
+  - `GATE_SECURITY`: TLS validity, HTTPS enforcement, Clickjacking protection.
+  - `GATE_FUNCTIONAL`: Unresolved `CONFIRMED` critical bugs or fatal broken routes immediately trigger `FAIL`.
+  - *If ANY Hard Gate is `FAIL`, the release verdict is unconditionally **`RELEASE_BLOCKED`**.*
+- **Tested Quality Score ($S_{\text{quality}}$)**: 0–100 score across automated checks minus confirmed bug deductions.
+- **Release Verdicts**:
+  - `VERIFIED_READY`: All Hard Gates PASS, zero unreviewed findings, zero confirmed critical bugs, coverage $= 100\%$, quality $\ge 85$.
+  - `PROVISIONAL_PASS`: No blockers detected, but unreviewed findings exist OR coverage $< 100\%$.
+  - `REVIEW_REQUIRED`: Inconclusive gates or high-severity unconfirmed findings.
+  - `RELEASE_BLOCKED`: Any Hard Gate FAILS or quality $< 70$.
