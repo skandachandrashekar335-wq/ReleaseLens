@@ -34,6 +34,7 @@
 | **ADR-023** | Separation of Automated Findings from Confirmed Defects in RQI Gating | 2026-11-03 | `ACCEPTED` |
 | **ADR-024** | Native Persistent SQLite Database Storage Engine & Supabase Migration Layer | 2026-11-04 | `ACCEPTED` |
 | **ADR-025** | Embedded Headless Playwright Browser Worker with Strict DNS/IP SSRF Guard | 2026-11-04 | `ACCEPTED` |
+| **ADR-026** | Server-Side IDOR Enforcement & Fail-Closed Production Providers | 2026-11-04 | `ACCEPTED` |
 
 ---
 
@@ -95,3 +96,24 @@ Automated auditing must execute dynamic JavaScript applications, monitor console
    - Launch headless Chromium with strict timeouts (15s navigation, 5s settle), single-tab isolation, and resource aborting for non-essential media.
    - Intercept console logs, uncaught exceptions, and 4xx/5xx network response codes.
    - Capture clean viewport screenshots encoded as Base64 data URIs for immediate visual evidence rendering without external S3/blob dependencies.
+
+
+---
+
+## ADR-026: Server-Side IDOR Enforcement & Fail-Closed Production Providers
+
+### Context
+In post-ship security auditing of multi-tenant cloud operations:
+1. Supabase clients initialized via `SUPABASE_SERVICE_ROLE_KEY` completely bypass Postgres Row Level Security (RLS). Relying solely on RLS when querying via the service-role client creates Insecure Direct Object Reference (IDOR) vulnerabilities.
+2. In production, failing to provide cloud credentials must never trigger a silent fallback to unpersisted or local ephemeral storage.
+3. Development mock authentication paths (e.g. `?email=...` bypass) must never remain accessible in production environments.
+
+### Decision
+1. **Mandatory Server-Side Tenant Authorization**:
+   - Every API route (`/api/bugs`, `/api/findings`, `/api/projects/[id]`, `/api/assistant/chat`, `/api/reports/share`) explicitly extracts authenticated session context (`userId`) and verifies that the targeted `project.userId === userId || project.userId === "user_demo_1"`. Returns `403 Forbidden` on mismatch.
+2. **Fail-Closed Provider Selection**:
+   - `createDataStore()` checks `DATABASE_PROVIDER`. If set to `supabase` and credentials are missing or placeholder, it throws a fatal error rather than silently degrading to SQLite.
+3. **Fail-Closed Production Authentication**:
+   - In `src/app/api/auth/google/route.ts`, if `process.env.NODE_ENV === "production"`, unauthenticated mock queries are rejected with `503 Service Unavailable`.
+4. **App Router Metadata Integrity**:
+   - Next.js 15 requires valid static icon assets in `public/` to prevent React Server Component manifest resolution errors during SSR. Added `public/favicon.ico`.

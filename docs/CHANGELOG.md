@@ -4,6 +4,25 @@ All notable changes to the ReleaseLens project are documented in this file in ad
 
 ---
 
+## [0.5.0] - 2026-11-04 — Post-Ship Security Audit & Production Fail-Closed Hardening
+
+### Added
+- **Interactive Playwright User Flows**:
+  - `scripts/e2e-browser-qa.mjs`: Upgraded browser QA from passive screenshot taking to real interactive state updates (opening `TriageModal`, submitting triage comments, confirming bugs, opening `RetestModal`, selecting verdict passes, and committing verifications).
+- **Static Assets for Server Components**:
+  - Added `public/favicon.ico` resolving Next.js 15 SSR `IconMark` manifest resolution warnings.
+
+### Fixed
+- **Multi-Tenant Server-Side IDOR Enforcement**:
+  - `src/app/api/bugs/route.ts`: Added explicit server-side authorization check (`project.userId === userId || project.userId === "user_demo_1"`).
+  - `src/app/api/findings/route.ts`: Added project ownership check blocking cross-tenant findings exfiltration.
+  - `src/app/api/assistant/chat/route.ts`: Patched unauthenticated bypass; assistant queries now strictly enforce project ownership.
+- **Fail-Closed Provider & OAuth Guarding**:
+  - `src/lib/store/db-adapter.ts`: `createDataStore()` now strictly validates `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` if `DATABASE_PROVIDER="supabase"`, throwing a fatal error instead of silently falling back to SQLite.
+  - `src/app/api/auth/google/route.ts`: Rejects unauthenticated mock sign-in queries (`?email=...`) in production with HTTP 503, enforcing genuine OAuth redirect and code exchange.
+
+---
+
 ## [0.4.0] - 2026-11-04 — Final Ship: Cryptographic ID Hardening, Supabase Adapter & Browser QA
 
 ### Added

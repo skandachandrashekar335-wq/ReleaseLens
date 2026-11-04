@@ -82,3 +82,30 @@ ReleaseLens enforces a **deny-by-default** data collection model:
 2. **URL Query Stripping**: Query parameters and hash fragments are stripped from all logged subresource URLs.
 3. **DOM & Forms**: Zero form values, passwords, or raw body dumps are stored. Only metadata elements (`title`, `meta`, `script[src]`) are captured.
 4. **AI Assistant Isolation**: The conversational AI assistant is completely **toolless** and operates strictly in read-only mode, ingesting structured evidence inside `<untrusted_evidence>` boundary tags.
+
+
+---
+
+## 4. Multi-Tenant Server-Side IDOR Enforcement
+
+Because the backend database adapter uses `SUPABASE_SERVICE_ROLE_KEY` in production, PostgreSQL Row Level Security (RLS) policies are bypassed automatically. ReleaseLens therefore enforces explicit application-level tenant isolation in TypeScript:
+
+1. **Project Ownership Verification**:
+   - `GET /api/projects/[id]`, `DELETE /api/projects/[id]`, `POST /api/projects/[id]/audit`
+   - `GET /api/findings?projectId=...`, `GET /api/bugs?projectId=...`
+   - `POST /api/assistant/chat`
+   - Every handler extracts the caller's authenticated `userId` from the session token and fetches the project record. If `project.userId !== userId && project.userId !== "user_demo_1"`, the request is rejected with `403 Forbidden`.
+
+2. **Entity Scoping**:
+   - Updates to findings (`PATCH /api/findings/[id]`) and bugs (`PATCH /api/bugs/[id]`, `POST /api/bugs/[id]/retest`) fetch the parent project and verify tenant access prior to executing writes.
+
+---
+
+## 5. Fail-Closed Production Configuration & OAuth Policy
+
+1. **Database Provider Selection**:
+   - `createDataStore()` inspects `DATABASE_PROVIDER`. If set to `supabase`, it strictly requires valid, non-placeholder `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. If either is missing, the application crashes on startup rather than silently falling back to local SQLite.
+
+2. **Google OAuth Production Fail-Closed**:
+   - In production (`NODE_ENV === "production"`), the development mock login endpoint (`/api/auth/google?email=...`) is strictly disabled and returns `503 Service Unavailable`.
+   - Production authentication strictly requires real OAuth authorization code exchange (`exchangeCodeForSession`) via Supabase Auth or Google Cloud credentials.
