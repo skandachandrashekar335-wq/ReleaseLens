@@ -15,7 +15,7 @@ export function generatePotentialFindings(
   // 1. Broken links findings
   for (const b of brokenLinks) {
     findings.push({
-      id: `find_link_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: `find_link_${Date.now()}_${crypto.randomUUID().substring(0, 8)}`,
       auditRunId,
       projectId,
       testSource: "LINK_CRAWLER",

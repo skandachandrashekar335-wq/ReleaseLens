@@ -35,7 +35,41 @@ export interface ShareTokenRecord {
   createdAt: string;
 }
 
-export class PersistentDataStore {
+export interface IDataStore {
+  getUser(id: string): Promise<UserRecord | null>;
+  getUserByEmail(email: string): Promise<UserRecord | null>;
+  createUser(user: Omit<UserRecord, "createdAt">): Promise<UserRecord>;
+  createSession(userId: string): Promise<SessionRecord>;
+  getSession(token: string): Promise<SessionRecord | null>;
+  deleteSession(token: string): Promise<boolean>;
+  getProjects(userId?: string): Promise<Project[]>;
+  getProject(id: string, userId?: string): Promise<Project | null>;
+  createProject(project: Omit<Project, "id" | "createdAt" | "updatedAt" | "verificationToken">): Promise<Project>;
+  deleteProject(id: string, userId?: string): Promise<boolean>;
+  saveAudit(audit: AuditRun): Promise<AuditRun>;
+  getAudit(id: string): Promise<AuditRun | null>;
+  getAuditsForProject(projectId: string): Promise<AuditRun[]>;
+  saveFinding(finding: PotentialFinding): Promise<PotentialFinding>;
+  getFinding(id: string): Promise<PotentialFinding | null>;
+  getFindingsForProject(projectId: string): Promise<PotentialFinding[]>;
+  updateFindingStatus(
+    findingId: string,
+    status: "CONFIRMED" | "REJECTED" | "DUPLICATE" | "ACCEPTED_RISK",
+    triageNotes?: string,
+    convertedBugId?: string,
+    triagedBy?: string
+  ): Promise<PotentialFinding | null>;
+  createBug(bug: Omit<BugReport, "id" | "createdAt" | "updatedAt">): Promise<BugReport>;
+  getBug(id: string): Promise<BugReport | null>;
+  getBugsForProject(projectId: string): Promise<BugReport[]>;
+  updateBug(bugId: string, updates: Partial<BugReport>): Promise<BugReport | null>;
+  addRetest(retest: Omit<RetestHistory, "id" | "retestedAt">): Promise<RetestHistory>;
+  getRetestHistory(bugId: string): Promise<RetestHistory[]>;
+  createShareToken(projectId: string, auditId?: string, data?: any): string;
+  getShareTokenData(token: string): ShareTokenRecord | null;
+}
+
+export class PersistentDataStore implements IDataStore {
   private db: DatabaseSync;
   private dbPath: string;
 
@@ -286,7 +320,7 @@ export class PersistentDataStore {
   }
 
   async createSession(userId: string): Promise<SessionRecord> {
-    const token = `rl_sess_${Math.random().toString(36).substring(2, 16)}_${Date.now()}`;
+    const token = `rl_sess_${crypto.randomUUID().replace(/-/g, "")}_${Date.now()}`;
     const createdAt = new Date().toISOString();
     const expiresAt = new Date(Date.now() + 86400000 * 14).toISOString(); // 14-day persistent session
 
@@ -341,8 +375,8 @@ export class PersistentDataStore {
   async createProject(
     project: Omit<Project, "id" | "createdAt" | "updatedAt" | "verificationToken">
   ): Promise<Project> {
-    const id = `proj_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-    const verificationToken = `rl_verify_${Math.random().toString(36).substring(2, 12)}`;
+    const id = `proj_${Date.now()}_${crypto.randomUUID().substring(0, 8)}`;
+    const verificationToken = `rl_verify_${crypto.randomUUID().replace(/-/g, "")}`;
     const now = new Date().toISOString();
 
     this.db.prepare(`
@@ -501,7 +535,7 @@ export class PersistentDataStore {
   }
 
   async createBug(bug: Omit<BugReport, "id" | "createdAt" | "updatedAt">): Promise<BugReport> {
-    const id = `bug_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const id = `bug_${Date.now()}_${crypto.randomUUID().substring(0, 8)}`;
     const now = new Date().toISOString();
     const stepsJson = JSON.stringify(bug.stepsToReproduce || []);
     const telemetryJson = JSON.stringify(bug.environmentTelemetry || {});
@@ -562,7 +596,7 @@ export class PersistentDataStore {
   // --- Retest Verification History ---
 
   async addRetest(retest: Omit<RetestHistory, "id" | "retestedAt">): Promise<RetestHistory> {
-    const randomSuffix = Math.random().toString(36).substring(2, 8);
+    const randomSuffix = crypto.randomUUID().substring(0, 8);
     const id = `retest_${Date.now()}_${randomSuffix}`;
     const now = new Date().toISOString();
 
@@ -622,7 +656,7 @@ export class PersistentDataStore {
   // --- Secure Share Tokens ---
 
   createShareToken(projectId: string, auditId?: string, data?: any): string {
-    const token = `share_${Math.random().toString(36).substring(2, 14)}`;
+    const token = `share_${crypto.randomUUID().replace(/-/g, "")}`;
     const now = new Date().toISOString();
     const expiresAt = new Date(Date.now() + 86400000 * 30).toISOString(); // 30-day expiry
     const dataJson = JSON.stringify(data || {});

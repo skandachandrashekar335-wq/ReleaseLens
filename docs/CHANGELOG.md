@@ -4,6 +4,20 @@ All notable changes to the ReleaseLens project are documented in this file in ad
 
 ---
 
+## [0.4.0] - 2026-11-04 — Final Ship: Cryptographic ID Hardening, Supabase Adapter & Browser QA
+
+### Added
+- **Collision-Resistant Cryptographic Identifiers**:
+  - Replaced all `Math.random` implementations with `crypto.randomUUID()` across session generation, project tokens, audit runs, findings, bug reports, and share tokens.
+- **Supabase PostgreSQL Production Adapter**:
+  - `src/lib/store/supabase-adapter.ts`: Production database adapter conforming to `IDataStore` interface with Supabase client integration and explicit failure on missing production credentials (no silent fallback).
+  - Updated `supabase/migrations/20261104000000_init_schema.sql` to include `sessions` table.
+- **E2E Automated Browser QA Verification**:
+  - `scripts/e2e-browser-qa.mjs`: Complete real Chromium Playwright verification capturing 9 full-screen screenshots across desktop (1280x800) and mobile (375x667).
+  - `tests/e2e-workflow.test.ts`: Expanded Vitest suite to 38 tests across 11 test suites.
+
+---
+
 ## [0.3.0] - 2026-11-04 — Full Quality Gate, Browser Isolation & Tenant Hardening
 
 ### Added

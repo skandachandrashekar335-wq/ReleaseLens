@@ -27,7 +27,7 @@ export async function executeAutomatedAudit(options: ExecuteAuditOptions): Promi
     skipBrowserWorker = false,
   } = options;
 
-  const auditRunId = `run_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const auditRunId = `run_${Date.now()}_${crypto.randomUUID().substring(0, 8)}`;
   const startedAt = new Date().toISOString();
 
   // 1. SSRF & Protocol Validation

@@ -12,6 +12,14 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 1b. Sessions Table
+CREATE TABLE IF NOT EXISTS sessions (
+  token TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL
+);
+
 -- 2. Projects Table
 CREATE TABLE IF NOT EXISTS projects (
   id TEXT PRIMARY KEY,

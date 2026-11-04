@@ -26,7 +26,7 @@ export async function POST(req: Request) {
 
     let user = await db.getUserByEmail(email);
     if (!user) {
-      const id = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const id = `usr_${Date.now()}_${crypto.randomUUID().substring(0, 8)}`;
       user = await db.createUser({
         id,
         email,

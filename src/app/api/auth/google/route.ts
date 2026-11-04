@@ -44,7 +44,7 @@ export async function GET(req: Request) {
     let user = await db.getUserByEmail(email);
     if (!user) {
       user = await db.createUser({
-        id: `usr_g_${Date.now()}`,
+        id: `usr_g_${Date.now()}_${crypto.randomUUID().substring(0, 8)}`,
         email,
         name,
         avatarUrl: "https://lh3.googleusercontent.com/a/default-user",
