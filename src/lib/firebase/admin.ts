@@ -43,6 +43,9 @@ export function initFirebaseAdmin(): App {
   }
 
   let formattedPrivateKey = config.privateKey!;
+  if (formattedPrivateKey.startsWith('"') && formattedPrivateKey.endsWith('"')) {
+    formattedPrivateKey = formattedPrivateKey.slice(1, -1);
+  }
   if (formattedPrivateKey.includes("\\n")) {
     formattedPrivateKey = formattedPrivateKey.replace(/\\n/g, "\n");
   }
