@@ -113,3 +113,26 @@ Because the backend database adapter uses `SUPABASE_SERVICE_ROLE_KEY` in product
 2. **Google OAuth Production Fail-Closed**:
    - In production (`NODE_ENV === "production"`), the development mock login endpoint (`/api/auth/google?email=...`) is strictly disabled and returns `503 Service Unavailable`.
    - Production authentication strictly requires real OAuth authorization code exchange (`exchangeCodeForSession`) via Supabase Auth or Google Cloud credentials.
+
+
+---
+
+## 5. Firebase Authentication Architecture & Token Security (v0.7.0, ADR-028)
+
+ReleaseLens utilizes Firebase Authentication as its primary Identity Provider with server-side validation enforced by the Firebase Admin SDK:
+
+1. **Client Identity & Token Retrieval**:
+   - Google Sign-In is executed via the official Firebase Client SDK (`GoogleAuthProvider`, `signInWithPopup`).
+   - The client never issues database writes directly from the browser; instead, it retrieves a cryptographically signed Firebase ID token (`getIdToken()`) and posts it to `/api/auth/session`.
+2. **Server-Side Token Verification & Zero-Trust Derivation**:
+   - The Next.js API server utilizes `firebase-admin/auth` (`admin.auth().verifyIdToken(idToken, true)`).
+   - Identity (`userId`) is derived **exclusively from `decodedToken.uid`**. The server discards and ignores any client-supplied `userId`, `role`, or `email` payload parameters to prevent identity spoofing and privilege escalation.
+3. **Session Cookies & Transport Security**:
+   - Upon token validation, the server issues an application session token stored in the `sessions` table.
+   - The token is delivered to the browser inside an `httpOnly`, `SameSite=Lax`, `Secure` (production) cookie named `releaselens_session`.
+   - Direct API consumers may alternatively pass `Authorization: Bearer <idToken>`.
+4. **Session Termination & Invalidation**:
+   - Calling `DELETE /api/auth/session` removes the session from the database and sets the cookie max-age to 0.
+   - Client calls `signOut(auth)` on the Firebase Client SDK to clear client-side token caches.
+5. **Fail-Closed Provider Security**:
+   - If Firebase Admin credentials are not provisioned in the deployment environment, all ID token exchanges return HTTP 503 (`FIREBASE_NOT_CONFIGURED`) rather than falling back to unauthenticated development sessions.

@@ -15,6 +15,7 @@ import {
   LogIn,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { signOutFirebase } from "@/lib/firebase/client";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -37,9 +38,12 @@ export function Navbar() {
   ];
 
   const handleSignOut = async () => {
+    try {
+      await signOutFirebase();
+    } catch {}
     await fetch("/api/auth/session", { method: "DELETE" });
     setUser(null);
-    window.location.reload();
+    window.location.href = "/";
   };
 
   return (
@@ -55,7 +59,7 @@ export function Navbar() {
               <span className="font-semibold text-sm tracking-tight text-foreground flex items-center gap-1.5">
                 ReleaseLens
                 <span className="text-[10px] font-mono font-medium px-1.5 py-0.2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">
-                  v0.1
+                  v0.7.0
                 </span>
               </span>
               <span className="text-[10px] text-muted-foreground tracking-wide font-mono">
@@ -110,13 +114,13 @@ export function Navbar() {
               </button>
             </div>
           ) : (
-            <a
-              href="/api/auth/google"
+            <Link
+              href="/login"
               className="inline-flex items-center gap-1.5 text-xs font-medium px-3.5 py-1.5 rounded-full bg-surface-raised border border-border text-foreground hover:bg-surface transition-all shadow-sm font-mono"
             >
               <LogIn className="h-3.5 w-3.5 text-emerald-400" />
               Google Sign-In
-            </a>
+            </Link>
           )}
 
           <Link

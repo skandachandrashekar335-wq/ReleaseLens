@@ -140,3 +140,30 @@ Allowing `project.userId === "user_demo_1"` as a blanket bypass in Supabase adap
    - Unauthenticated visitors submitting URLs on the landing page are provisioned an isolated guest tenant session, ensuring every user operates exclusively within their own private partition.
 5. **Report Sanitization**:
    - Public shared reports strictly filter workspace secrets, stripping `verificationToken` and `userId` from project and defect payloads.
+
+
+---
+
+## ADR-028: Firebase Authentication Integration with Server-Side Admin Verification
+
+### Context
+ReleaseLens requires a production-grade external Identity Provider (IdP) supporting Google Sign-In while preserving strict zero-trust tenant isolation, server-side identity derivation, and complete protection of private workspace resources across both SQLite and Supabase PostgreSQL persistence engines.
+
+### Decision
+1. **Client Identity Flow**:
+   - Integrated the official Firebase Client SDK (`firebase/app`, `firebase/auth`) using `GoogleAuthProvider` with interactive popup authentication (`signInWithPopup`).
+   - Client retrieves verified Firebase ID token (`getIdToken()`) and submits it to `POST /api/auth/session`.
+2. **Zero-Trust Server-Side Verification**:
+   - `src/lib/firebase/admin.ts` initializes the official Firebase Admin SDK (`firebase-admin/app`, `firebase-admin/auth`).
+   - Server validates the cryptographically signed ID token via `auth.verifyIdToken(idToken, true)`.
+   - The application `userId` is strictly derived from the verified token claim (`decoded.uid`). Unverified client-supplied user IDs or spoofed parameters in request bodies are ignored.
+3. **Database Identity Synchronization**:
+   - Upon successful ID token verification, the server checks `users` for `id = decoded.uid`. If absent, it automatically provisions the user record with the verified Google email, name, and profile photo, defaulting to `role = 'qa_engineer'`.
+4. **Session Management & Cookie Security**:
+   - Generates an opaque application session token (`releaselens_session`) persisted in `sessions` table with a 14-day expiry.
+   - Sets secure HTTP-only cookie with `SameSite=Lax`, `Path=/`, and `Secure` flag in production.
+   - Calling `DELETE /api/auth/session` removes the session from the database and prunes the browser cookie.
+5. **Fail-Closed Provider Guard**:
+   - If Firebase Admin credentials (`FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`) are missing, server token verification fails closed with HTTP 503 (`FIREBASE_NOT_CONFIGURED`) rather than permitting unauthenticated bypass.
+6. **Isolated Test Hook**:
+   - Provided `setCustomTokenVerifier()` for deterministic regression testing of token expiry, invalid token rejection, and cross-user tenant boundaries in Vitest without external network dependencies.

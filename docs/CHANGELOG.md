@@ -4,6 +4,31 @@ All notable changes to the ReleaseLens project are documented in this file in ad
 
 ---
 
+## [0.7.0] - 2026-11-04 — Firebase Authentication Integration & Admin SDK Verification
+
+### Added
+- **Firebase Authentication Client SDK (`src/lib/firebase/client.ts`)**:
+  - Initialized Firebase Web SDK with Google Sign-In popup support (`signInWithPopup`, `GoogleAuthProvider`).
+  - Added `signInWithGoogle()` and `signOutFirebase()` helpers with loading and error boundaries.
+  - Fail-closed configuration check (`isFirebaseClientConfigured()`).
+- **Firebase Admin SDK Server-Side Verification (`src/lib/firebase/admin.ts`)**:
+  - Implemented server-side token verification via `firebase-admin/auth` (`verifyFirebaseIdToken()`).
+  - Strict zero-trust subject UID extraction: user identity derived exclusively from cryptographically verified `decodedToken.uid`.
+  - Added `setCustomTokenVerifier()` for deterministic regression test isolation without external network calls.
+- **Dedicated Authentication Routes & UI**:
+  - `src/app/login/page.tsx`: Full-featured authentication portal featuring Google Sign-In, error diagnostics, and configuration notices.
+  - `src/app/not-found.tsx`: Resilient 404 page preventing Next.js 15 SSR route collection errors.
+  - `src/app/api/auth/session/route.ts`: Token exchange endpoint verifying Firebase ID tokens, synchronizing PostgreSQL/SQLite user records, issuing persistent 14-day sessions, and setting secure HTTP-only cookies (`releaselens_session`).
+  - `src/components/navigation/Navbar.tsx`: Integrated Google Sign-In and Sign-Out triggers with Firebase Client SDK and Next.js session lifecycle.
+- **Architectural Documentation**:
+  - Added ADR-028 (Firebase Authentication Integration with Server-Side Admin Verification) to `docs/DECISIONS.md`.
+  - Updated `docs/SECURITY.md` with Section 5 (Firebase Authentication Architecture & Token Security).
+  - Updated `.env.example` with Firebase client and Admin SDK variable templates.
+- **Comprehensive Test Suite**:
+  - Added `tests/firebase-auth.test.ts`: 12 automated unit and regression tests covering token verification, invalid/expired token rejection, missing credential fail-closed (503), client-spoofed payload rejection, session logout, and multi-tenant isolation across SQLite and Supabase PostgreSQL. Total test suite expanded to 59 passing tests.
+
+---
+
 ## [0.6.0] - 2026-11-04 — Elimination of Shared Demo Tenant Access & Zero-Trust Authorization
 
 ### Security Hardening

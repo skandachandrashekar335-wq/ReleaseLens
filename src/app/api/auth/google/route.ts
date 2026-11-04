@@ -1,119 +1,33 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/store/db-adapter";
-import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
+import { isFirebaseAdminConfigured } from "@/lib/firebase/admin";
+import { isFirebaseClientConfigured } from "@/lib/firebase/client";
+import { getAuthSession } from "@/lib/auth/session";
 
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
-    const code = url.searchParams.get("code");
-    const state = url.searchParams.get("state");
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const googleClientId = process.env.GOOGLE_CLIENT_ID;
 
-    // Status query endpoint for external OAuth provider readiness
+    // Status query endpoint for external identity provider readiness
     if (action === "oauth_status") {
-      const isConfigured = Boolean(
-        googleClientId || (supabaseUrl && !supabaseUrl.includes("placeholder"))
-      );
+      const isConfigured = isFirebaseAdminConfigured() && isFirebaseClientConfigured();
       return NextResponse.json({
-        provider: "google",
+        provider: "firebase_google",
         status: isConfigured ? "CONFIGURED" : "BLOCKED",
         reason: isConfigured
-          ? "External Google OAuth credentials detected."
-          : "External Google OAuth requires GOOGLE_CLIENT_ID or production Supabase Auth credentials. Internal session authentication active.",
+          ? "Firebase Authentication and Admin SDK credentials verified."
+          : "Firebase Authentication requires NEXT_PUBLIC_FIREBASE_* client credentials and FIREBASE_* Admin service account credentials.",
       });
     }
 
-    // CSRF State validation: if state is provided, verify non-empty token
-    if (state && state.length < 8) {
-      return NextResponse.json({ error: "Invalid OAuth state parameter (CSRF protection)" }, { status: 403 });
+    // Check if user is already authenticated
+    const auth = await getAuthSession();
+    if (auth.isAuthenticated) {
+      return NextResponse.redirect(new URL("/dashboard", url.origin));
     }
 
-    // If Supabase OAuth is configured, redirect to Supabase Google Auth
-    if (!code && supabaseUrl && !supabaseUrl.includes("placeholder")) {
-      const redirectUri = `${url.origin}/api/auth/google`;
-      const authEndpoint = `${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUri)}`;
-      return NextResponse.redirect(authEndpoint);
-    }
-
-    // If an authorization code was returned from Supabase OAuth
-    if (code && supabaseUrl && !supabaseUrl.includes("placeholder")) {
-      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-      const { createClient } = await import("@supabase/supabase-js");
-      const supabase = createClient(supabaseUrl, anonKey);
-      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-      if (error || !data.user) {
-        return NextResponse.redirect(
-          new URL(`/login?error=${encodeURIComponent(error?.message || "OAuth exchange failed")}`, url.origin)
-        );
-      }
-
-      const email = data.user.email || "qa.engineer@company.com";
-      const name = data.user.user_metadata?.full_name || data.user.user_metadata?.name || email.split("@")[0];
-      const avatarUrl = data.user.user_metadata?.avatar_url || data.user.user_metadata?.picture;
-
-      let user = await db.getUserByEmail(email);
-      if (!user) {
-        user = await db.createUser({
-          id: data.user.id,
-          email,
-          name,
-          avatarUrl,
-          role: "qa_engineer",
-        });
-      }
-
-      const session = await db.createSession(user.id);
-      const response = NextResponse.redirect(new URL("/dashboard", url.origin));
-      response.cookies.set(SESSION_COOKIE_NAME, session.token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 86400 * 14,
-        path: "/",
-      });
-
-      return response;
-    }
-
-    // In production without valid external OAuth credentials, fail closed (no unauthenticated mock logins)
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json(
-        {
-          error: "Google OAuth provider is BLOCKED: Production deployment requires NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY with Google OAuth configured.",
-          status: "BLOCKED",
-        },
-        { status: 503 }
-      );
-    }
-
-    // In local / demo mode without Supabase OAuth credentials, provide one-click Google Sign-In verification
-    const email = url.searchParams.get("email") || "qa.engineer@company.com";
-    const name = url.searchParams.get("name") || "Google QA Tester";
-
-    let user = await db.getUserByEmail(email);
-    if (!user) {
-      user = await db.createUser({
-        id: `usr_g_${Date.now()}_${crypto.randomUUID().substring(0, 8)}`,
-        email,
-        name,
-        avatarUrl: "https://lh3.googleusercontent.com/a/default-user",
-        role: "qa_engineer",
-      });
-    }
-
-    const session = await db.createSession(user.id);
-    const response = NextResponse.redirect(new URL("/dashboard", url.origin));
-    response.cookies.set(SESSION_COOKIE_NAME, session.token, {
-      httpOnly: true,
-      secure: false, // non-production development cookie
-      sameSite: "lax",
-      maxAge: 86400 * 14,
-      path: "/",
-    });
-
-    return response;
+    // Redirect to login page for client-side Firebase Google Sign-In
+    return NextResponse.redirect(new URL("/login", url.origin));
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
