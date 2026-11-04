@@ -23,7 +23,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
     }
 
-    const token = db.createShareToken(projectId, auditId, data);
+    const token = await db.createShareToken(projectId, auditId, data);
     return NextResponse.json(
       {
         token,

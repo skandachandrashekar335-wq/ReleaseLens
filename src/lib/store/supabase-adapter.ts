@@ -136,7 +136,9 @@ export class SupabaseDataStore implements IDataStore {
 
   async getProjects(userId?: string): Promise<Project[]> {
     let query = this.client.from("projects").select("*").order("created_at", { ascending: false });
-    if (userId) query = query.eq("user_id", userId);
+    if (userId) {
+      query = query.or(`user_id.eq.${userId},user_id.eq.user_demo_1`);
+    }
 
     const { data, error } = await query;
     if (error || !data) return [];
@@ -155,7 +157,9 @@ export class SupabaseDataStore implements IDataStore {
 
   async getProject(id: string, userId?: string): Promise<Project | null> {
     let query = this.client.from("projects").select("*").eq("id", id);
-    if (userId) query = query.eq("user_id", userId);
+    if (userId) {
+      query = query.or(`user_id.eq.${userId},user_id.eq.user_demo_1`);
+    }
 
     const { data, error } = await query.maybeSingle();
     if (error || !data) return null;
@@ -549,28 +553,40 @@ export class SupabaseDataStore implements IDataStore {
     }));
   }
 
-  createShareToken(projectId: string, auditId?: string, data?: any): string {
+  async createShareToken(projectId: string, auditId?: string, data?: any): Promise<string> {
     const token = `share_${crypto.randomUUID().replace(/-/g, "")}`;
     const now = new Date().toISOString();
     const expiresAt = new Date(Date.now() + 86400000 * 30).toISOString();
 
-    this.client
-      .from("share_tokens")
-      .insert({
-        token,
-        project_id: projectId,
-        audit_id: auditId || null,
-        data_json: data || {},
-        expires_at: expiresAt,
-        created_at: now,
-      })
-      .then();
+    const { error } = await this.client.from("share_tokens").insert({
+      token,
+      project_id: projectId,
+      audit_id: auditId || null,
+      data_json: data || {},
+      expires_at: expiresAt,
+      created_at: now,
+    });
 
+    if (error) throw new Error(`Supabase createShareToken error: ${error.message}`);
     return token;
   }
 
-  getShareTokenData(token: string): ShareTokenRecord | null {
-    // Note: async getter handled via API route; this sync wrapper conforms to interface
-    return null;
+  async getShareTokenData(token: string): Promise<ShareTokenRecord | null> {
+    const { data, error } = await this.client
+      .from("share_tokens")
+      .select("*")
+      .eq("token", token)
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
+
+    if (error || !data) return null;
+    return {
+      token: data.token,
+      projectId: data.project_id,
+      auditId: data.audit_id,
+      data: data.data_json,
+      expiresAt: data.expires_at,
+      createdAt: data.created_at,
+    };
   }
 }

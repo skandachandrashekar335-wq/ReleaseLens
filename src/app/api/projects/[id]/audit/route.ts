@@ -15,7 +15,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    if (userId && project.userId !== "user_demo_1" && project.userId !== userId) {
+    const effectiveUserId = userId || "user_demo_1";
+    if (project.userId !== "user_demo_1" && project.userId !== effectiveUserId) {
       return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
     }
 
@@ -58,6 +59,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const auth = await getAuthSession();
+    const userId = auth.user?.id || "user_demo_1";
+
+    const project = await db.getProject(id);
+    if (!project) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+    if (project.userId !== "user_demo_1" && project.userId !== userId) {
+      return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
+    }
+
     const audits = await db.getAuditsForProject(id);
     return NextResponse.json(audits);
   } catch (error: any) {

@@ -65,8 +65,8 @@ export interface IDataStore {
   updateBug(bugId: string, updates: Partial<BugReport>): Promise<BugReport | null>;
   addRetest(retest: Omit<RetestHistory, "id" | "retestedAt">): Promise<RetestHistory>;
   getRetestHistory(bugId: string): Promise<RetestHistory[]>;
-  createShareToken(projectId: string, auditId?: string, data?: any): string;
-  getShareTokenData(token: string): ShareTokenRecord | null;
+  createShareToken(projectId: string, auditId?: string, data?: any): Promise<string> | string;
+  getShareTokenData(token: string): Promise<ShareTokenRecord | null> | ShareTokenRecord | null;
 }
 
 export class PersistentDataStore implements IDataStore {

@@ -13,8 +13,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Verify tenant ownership if user is authenticated with a non-demo account
-    if (userId && project.userId !== "user_demo_1" && project.userId !== userId) {
+    // Verify tenant ownership (demo project is accessible to all; private projects require exact user match)
+    const effectiveUserId = userId || "user_demo_1";
+    if (project.userId !== "user_demo_1" && project.userId !== effectiveUserId) {
       return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
     }
 
@@ -46,7 +47,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    if (userId && project.userId !== "user_demo_1" && project.userId !== userId) {
+    const effectiveUserId = userId || "user_demo_1";
+    if (project.userId !== "user_demo_1" && project.userId !== effectiveUserId) {
       return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
     }
 

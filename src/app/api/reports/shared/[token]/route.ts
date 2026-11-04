@@ -4,7 +4,7 @@ import { db } from "@/lib/store/db-adapter";
 export async function GET(req: Request, { params }: { params: Promise<{ token: string }> }) {
   try {
     const { token } = await params;
-    const tokenData = db.getShareTokenData(token);
+    const tokenData = await db.getShareTokenData(token);
 
     if (!tokenData) {
       return NextResponse.json({ error: "Invalid or expired report link" }, { status: 404 });

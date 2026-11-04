@@ -10,7 +10,7 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     const { projectId } = body;
-    const queryText = body.userQuery || body.prompt;
+    const queryText = body.userQuery || body.prompt || body.message;
 
     if (!projectId || !queryText) {
       return NextResponse.json({ error: "projectId and prompt/userQuery are required" }, { status: 400 });

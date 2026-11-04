@@ -14,7 +14,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const project = await db.getProject(bug.projectId);
-    if (project && project.userId !== "user_demo_1" && project.userId !== userId) {
+    if (!project) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+    if (project.userId !== "user_demo_1" && project.userId !== userId) {
       return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
     }
 
@@ -38,7 +41,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
 
     const project = await db.getProject(bug.projectId);
-    if (project && project.userId !== "user_demo_1" && project.userId !== userId) {
+    if (!project) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+    if (project.userId !== "user_demo_1" && project.userId !== userId) {
       return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
     }
 
