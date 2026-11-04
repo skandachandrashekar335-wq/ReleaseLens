@@ -21,14 +21,14 @@ interface TriageModalProps {
 }
 
 export function TriageModal({ finding, isOpen, onClose, onConfirmTriage }: TriageModalProps) {
-  if (!finding) return null;
-
   const [severity, setSeverity] = useState<Severity>(
-    finding.suggestedSeverity || finding.recommendedSeverity || "MEDIUM"
+    finding?.suggestedSeverity || finding?.recommendedSeverity || "MEDIUM"
   );
   const [notes, setNotes] = useState<string>("");
   const [triagedBy, setTriagedBy] = useState<string>("Lead QA Engineer");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  if (!finding) return null;
 
   const handleSubmit = async (action: "CONFIRMED" | "REJECTED" | "DUPLICATE" | "ACCEPTED_RISK") => {
     try {

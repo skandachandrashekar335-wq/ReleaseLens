@@ -24,14 +24,23 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
     const bugs = await db.getBugsForProject(project.id);
     const rqi = tokenData.data?.rqi || audit?.rqiScore;
 
+    const sanitizedProject = {
+      id: project.id,
+      name: project.name,
+      targetUrl: project.targetUrl,
+      environment: project.environment,
+      isVerified: project.isVerified,
+      createdAt: project.createdAt,
+    };
+
     const payload = {
-      project,
+      project: sanitizedProject,
       audit: audit || null,
       rqi: rqi || null,
       findings,
       bugs,
       data: {
-        project,
+        project: sanitizedProject,
         rqi: rqi || null,
         bugs,
       },

@@ -54,7 +54,22 @@ describe("SSRF Guard & Perimeter Defense", () => {
     expect(isPrivateIp("172.16.0.5")).toBe(true);
     expect(isPrivateIp("192.168.0.1")).toBe(true);
     expect(isPrivateIp("169.254.1.1")).toBe(true);
+    expect(isPrivateIp("::1")).toBe(true);
+    expect(isPrivateIp("fd00::1")).toBe(true);
+    expect(isPrivateIp("fe80::1")).toBe(true);
+    expect(isPrivateIp("::ffff:127.0.0.1")).toBe(true);
     expect(isPrivateIp("8.8.8.8")).toBe(false);
     expect(isPrivateIp("1.1.1.1")).toBe(false);
+  });
+
+  it("blocks IPv6 loopback, link-local, and ULA targets", async () => {
+    const ipv6Loopback = await validateTargetUrl("http://[::1]:8080/");
+    expect(ipv6Loopback.isAllowed).toBe(false);
+
+    const ipv6Local = await validateTargetUrl("http://[fe80::1ff:fe23:4567:890a]/");
+    expect(ipv6Local.isAllowed).toBe(false);
+
+    const ipv6Ula = await validateTargetUrl("http://[fd12:3456:789a:1::1]/");
+    expect(ipv6Ula.isAllowed).toBe(false);
   });
 });

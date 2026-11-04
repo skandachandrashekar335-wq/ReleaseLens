@@ -180,6 +180,33 @@ export class PlaywrightBrowserWorker implements IBrowserWorker {
         }
       });
 
+      // Universal Browser Route Interception for Subresource & Redirect SSRF Defense
+      await page.route("**/*", async (route) => {
+        const req = route.request();
+        const reqUrl = req.url();
+
+        if (reqUrl.startsWith("data:")) {
+          if (options.allowDataUrls) {
+            return route.continue();
+          }
+        }
+
+        try {
+          const check = await validateTargetUrl(reqUrl, { allowDataUrls: options.allowDataUrls });
+          if (!check.isAllowed) {
+            networkFailures.push({
+              url: reqUrl,
+              status: 403,
+              statusText: `Blocked by SSRF Perimeter: ${check.reason}`,
+            });
+            return route.abort("accessdenied");
+          }
+          return route.continue();
+        } catch {
+          return route.abort("blockedbyclient");
+        }
+      });
+
       // 2. Real Browser Navigation
       const navStart = Date.now();
       await page.goto(targetUrl, {

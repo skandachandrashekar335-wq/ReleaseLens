@@ -49,12 +49,16 @@ export async function POST(req: Request) {
       );
     }
 
-    // Determine target URL fallback from project if not directly specified
-    let targetUrl = affectedUrl;
-    if (!targetUrl) {
-      const proj = await db.getProject(projectId);
-      targetUrl = proj?.targetUrl || "https://target-app.local";
+    const proj = await db.getProject(projectId);
+    if (!proj) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
+    if (proj.userId !== "user_demo_1" && proj.userId !== userId) {
+      return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
+    }
+
+    // Determine target URL fallback from project if not directly specified
+    const targetUrl = affectedUrl || proj.targetUrl || "https://target-app.local";
 
     const bug = await db.createBug({
       projectId,

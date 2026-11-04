@@ -197,5 +197,5 @@ export interface ReleaseDelta {
   regressionDetected?: boolean;
   previousVerdict?: ReleaseVerdict;
   currentVerdict?: ReleaseVerdict;
-  notes?: string[];
+  notes: string[];
 }

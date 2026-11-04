@@ -444,7 +444,7 @@ export class PersistentDataStore {
       finding.sourceCheck || finding.testSource || "AUDIT_PROBE",
       finding.affectedUrl || null,
       finding.title,
-      finding.description,
+      finding.description || null,
       finding.expectedBehavior || null,
       finding.observedBehavior || null,
       finding.suggestedSeverity || finding.recommendedSeverity || "MEDIUM",
@@ -521,7 +521,7 @@ export class PersistentDataStore {
       bug.userId || "user_demo_1",
       bug.sourceFindingId || null,
       bug.title,
-      bug.description,
+      bug.description || null,
       bug.affectedUrl || "https://target-app.local",
       stepsJson,
       bug.expectedBehavior || bug.expectedResult || null,
@@ -769,6 +769,18 @@ export class PersistentDataStore {
 
   close() {
     this.db.close();
+  }
+
+  transaction<T>(fn: () => T): T {
+    this.db.exec("BEGIN TRANSACTION");
+    try {
+      const result = fn();
+      this.db.exec("COMMIT");
+      return result;
+    } catch (err) {
+      this.db.exec("ROLLBACK");
+      throw err;
+    }
   }
 }
 

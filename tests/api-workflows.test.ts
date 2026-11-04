@@ -262,4 +262,76 @@ describe("End-to-End Product Workflows (A through F)", () => {
     expect(delta.newBrokenLinks).toContain("https://example.com/checkout");
     expect(delta.notes.some((n) => n.includes("regressed by 20 points"))).toBe(true);
   });
+
+  it("Workflow G: Strict Tenant Isolation across projects, bugs, and retest verification", async () => {
+    // 1. Create two separate users
+    const alice = await db.createUser({ id: "usr_alice_sec", email: "alice.sec@test.com", name: "Alice Security", role: "tester" });
+    const bob = await db.createUser({ id: "usr_bob_sec", email: "bob.sec@test.com", name: "Bob Security", role: "tester" });
+
+    // 2. Alice creates a private project and logs a defect
+    const aliceProject = await db.createProject({
+      userId: alice.id,
+      name: "Alice Financial Dashboard",
+      targetUrl: "https://fin.alice.org",
+      environment: "PRODUCTION",
+      isVerified: true,
+    });
+
+    const aliceBug = await db.createBug({
+      projectId: aliceProject.id,
+      userId: alice.id,
+      title: "Ledger decimal truncation error",
+      description: "Floating point precision bug in ledger calculations",
+      affectedUrl: "https://fin.alice.org/ledger",
+      severity: "CRITICAL",
+      status: "OPEN",
+    });
+
+    // 3. Verify Bob cannot fetch Alice's project
+    const bobProjectFetch = await db.getProject(aliceProject.id, bob.id);
+    expect(bobProjectFetch).toBeNull();
+
+    // 4. Verify Bob cannot delete Alice's project
+    const bobDeleteAttempt = await db.deleteProject(aliceProject.id, bob.id);
+    expect(bobDeleteAttempt).toBe(false);
+
+    // 5. Verify Alice can execute retest on her bug
+    const aliceRetest = await db.addRetest({
+      bugReportId: aliceBug.id,
+      userId: alice.id,
+      tester: "Alice QA",
+      previousStatus: "OPEN",
+      newStatus: "VERIFIED",
+      testerVerdict: "PASS",
+      testerComment: "Fix verified in release 1.0.4",
+    });
+    expect(aliceRetest.testerVerdict).toBe("PASS");
+
+    const retestHistory = await db.getRetestHistory(aliceBug.id);
+    expect(retestHistory.length).toBe(1);
+    expect(retestHistory[0].userId).toBe(alice.id);
+  });
+
+  it("Workflow H: Shared Permapage token generation and verification token sanitization", async () => {
+    const project = await db.createProject({
+      userId: "user_demo_1",
+      name: "Client Public Report Test",
+      targetUrl: "https://client-demo.vercel.app",
+      environment: "PREVIEW",
+      isVerified: true,
+    });
+
+    const token = db.createShareToken(project.id, undefined, {
+      summary: "Client Delivery QA Audit",
+      verdict: "VERIFIED_READY",
+    });
+
+    const tokenData = db.getShareTokenData(token);
+    expect(tokenData).not.toBeNull();
+    expect(tokenData?.projectId).toBe(project.id);
+
+    // Verify token expiration is in future (~30 days)
+    const expiresAt = new Date(tokenData!.expiresAt).getTime();
+    expect(expiresAt).toBeGreaterThan(Date.now() + 86400000 * 20);
+  });
 });

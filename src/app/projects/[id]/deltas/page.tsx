@@ -39,6 +39,7 @@ export default function ReleaseDeltasPage({ params }: { params: Promise<{ id: st
       to: "PROVISIONAL_PASS",
     },
     regressionDetected: false,
+    notes: ["Quality score improved by +6 points.", "Content-Security-Policy header successfully configured."],
   };
 
   useEffect(() => {

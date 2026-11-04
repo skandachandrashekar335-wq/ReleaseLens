@@ -17,9 +17,12 @@ const BLOCKED_IP_PATTERNS = [
   /^100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\./, // CGNAT (100.64.0.0/10)
   /^0\./,                           // Current network
   /^::1$/,                          // IPv6 Loopback
+  /^::$|^::0$/,                     // IPv6 Unspecified
   /^fe80:/i,                        // IPv6 Link-local
   /^fc00:/i,                        // IPv6 Unique local address
   /^fd00:/i,                        // IPv6 Unique local address
+  /^::ffff:(127\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.|169\.254\.)/i, // IPv4-mapped IPv6
+  /^255\.255\.255\.255$/,           // Broadcast
 ];
 
 const BLOCKED_HOSTNAMES = [

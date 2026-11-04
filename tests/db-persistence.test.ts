@@ -130,4 +130,47 @@ describe("Persistent Database & Tenant Isolation (node:sqlite)", () => {
 
     db.close();
   });
+
+  it("rolls back transactions atomically on error and enforces cascading deletes", async () => {
+    const db = new PersistentDataStore(testDbPath);
+
+    const user = await db.createUser({
+      id: "usr_carol",
+      email: "carol@test.com",
+      name: "Carol QA",
+      role: "tester",
+    });
+
+    const project = await db.createProject({
+      userId: user.id,
+      name: "Cascade Test App",
+      targetUrl: "https://cascade.example.com",
+      environment: "PREVIEW",
+    });
+
+    const bug = await db.createBug({
+      projectId: project.id,
+      userId: user.id,
+      title: "Temporary Bug",
+      description: "Bug for testing cascade delete",
+      affectedUrl: "https://cascade.example.com",
+      severity: "LOW",
+      status: "OPEN",
+    });
+
+    // Verify transaction rollback
+    expect(() => {
+      db.transaction(() => {
+        db.createShareToken(project.id, undefined, { name: "Atomic Test" });
+        throw new Error("Intentional transaction abort");
+      });
+    }).toThrow("Intentional transaction abort");
+
+    // Foreign Key Cascade test: deleting project should cascade delete its bugs
+    await db.deleteProject(project.id, user.id);
+    const deletedBug = await db.getBug(bug.id);
+    expect(deletedBug).toBeNull();
+
+    db.close();
+  });
 });

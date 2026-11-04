@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/store/db-adapter";
+import { getAuthSession } from "@/lib/auth/session";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const auth = await getAuthSession();
+    const userId = auth.user?.id || "user_demo_1";
+
     const body = await req.json();
     const { status, triageNotes, triagedBy, suggestedSeverity, adjustedSeverity } = body;
 
@@ -16,13 +20,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       return NextResponse.json({ error: "Finding not found" }, { status: 404 });
     }
 
+    const project = await db.getProject(finding.projectId);
+    if (project && project.userId !== "user_demo_1" && project.userId !== userId) {
+      return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
+    }
+
     let convertedBugId: string | undefined;
 
     // If confirmed as bug, automatically convert to official persistent BugReport
     if (status === "CONFIRMED") {
       const bug = await db.createBug({
         projectId: finding.projectId,
-        userId: "user_demo_1",
+        userId,
         sourceFindingId: finding.id,
         title: finding.title,
         description: finding.description,

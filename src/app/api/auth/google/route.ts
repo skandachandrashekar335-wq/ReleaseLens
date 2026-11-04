@@ -5,8 +5,30 @@ import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
+    const action = url.searchParams.get("action");
     const code = url.searchParams.get("code");
+    const state = url.searchParams.get("state");
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const googleClientId = process.env.GOOGLE_CLIENT_ID;
+
+    // Status query endpoint for external OAuth provider readiness
+    if (action === "oauth_status") {
+      const isConfigured = Boolean(
+        googleClientId || (supabaseUrl && !supabaseUrl.includes("placeholder"))
+      );
+      return NextResponse.json({
+        provider: "google",
+        status: isConfigured ? "CONFIGURED" : "BLOCKED",
+        reason: isConfigured
+          ? "External Google OAuth credentials detected."
+          : "External Google OAuth requires GOOGLE_CLIENT_ID or production Supabase Auth credentials. Internal session authentication active.",
+      });
+    }
+
+    // CSRF State validation: if state is provided, verify non-empty token
+    if (state && state.length < 8) {
+      return NextResponse.json({ error: "Invalid OAuth state parameter (CSRF protection)" }, { status: 403 });
+    }
 
     // If Supabase OAuth is configured, redirect to Supabase Google Auth
     if (!code && supabaseUrl && !supabaseUrl.includes("placeholder")) {

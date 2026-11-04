@@ -14,12 +14,12 @@ interface RetestModalProps {
 }
 
 export function RetestModal({ bug, isOpen, onClose, onRecordRetest }: RetestModalProps) {
-  if (!bug) return null;
-
   const [verdict, setVerdict] = useState<RetestVerdict>("PASS");
   const [comments, setComments] = useState<string>("");
   const [tester, setTester] = useState<string>("QA Tester");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  if (!bug) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

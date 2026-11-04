@@ -4,6 +4,26 @@ All notable changes to the ReleaseLens project are documented in this file in ad
 
 ---
 
+## [0.3.0] - 2026-11-04 — Full Quality Gate, Browser Isolation & Tenant Hardening
+
+### Added
+- **Browser-Level Universal Route Interception**:
+  - `src/lib/engine/browser-worker.ts`: Registered `page.route('**/*')` intercepting every subresource (`fetch`, `script`, `img`, `css`, `iframe`) and redirect against `validateTargetUrl`. Rejects any internal or cloud metadata subresource request with `accessdenied`.
+- **Database Transaction Atomic Rollback**:
+  - `src/lib/store/db-adapter.ts`: Implemented `transaction<T>(fn: () => T): T` on `PersistentDataStore` providing atomic commit and rollback guarantees on SQLite transactions.
+- **Tenant Authorization & Ownership Verification**:
+  - Enforced project and bug ownership validation across `/api/bugs`, `/api/bugs/[id]`, `/api/bugs/[id]/retest`, `/api/findings/[id]`, `/api/reports/share`, preventing cross-tenant read/write tampering.
+- **Share Permapage Secret Sanitization**:
+  - `src/app/api/reports/shared/[token]/route.ts`: Sanitized public report responses to strictly exclude `verificationToken` and internal credentials.
+- **Rules of Hooks & Linter Verification**:
+  - Configured ESLint with standard `next/core-web-vitals` rules; resolved conditional hook calls in `RetestModal.tsx` and `TriageModal.tsx`.
+- **Expanded Test Suite (36/36 Passing)**:
+  - Added Workflow G (Strict Tenant Isolation) and Workflow H (Permapage Expiration & Secret Sanitization) to `tests/api-workflows.test.ts`.
+  - Added IPv6 Loopback, ULA, and Link-Local tests to `tests/ssrf-guard.test.ts`.
+  - Added Transaction Rollback & Cascading Delete test to `tests/db-persistence.test.ts`.
+
+---
+
 ## [0.2.0] - 2026-11-04 — Reality Audit, Functional Completion & Production Hardening
 
 ### Added
