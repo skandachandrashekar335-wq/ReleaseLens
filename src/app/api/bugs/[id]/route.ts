@@ -5,9 +5,6 @@ import { getAuthSession } from "@/lib/auth/session";
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const auth = await getAuthSession();
-    const userId = auth.user?.id || "user_demo_1";
-
     const bug = await db.getBug(id);
     if (!bug) {
       return NextResponse.json({ error: "Bug not found" }, { status: 404 });
@@ -17,8 +14,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
-    if (project.userId !== "user_demo_1" && project.userId !== userId) {
-      return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
+
+    // Public demo project permits read-only inspection; private projects require ownership
+    if (project.id !== "proj_hackathon_demo") {
+      const auth = await getAuthSession();
+      if (!auth.user || !auth.isAuthenticated) {
+        return NextResponse.json({ error: "Unauthorized: Valid session required" }, { status: 401 });
+      }
+      if (project.userId !== auth.user.id) {
+        return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
+      }
     }
 
     const retestHistory = await db.getRetestHistory(id);
@@ -33,7 +38,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   try {
     const { id } = await params;
     const auth = await getAuthSession();
-    const userId = auth.user?.id || "user_demo_1";
+    if (!auth.user || !auth.isAuthenticated) {
+      return NextResponse.json({ error: "Unauthorized: Valid session required" }, { status: 401 });
+    }
 
     const bug = await db.getBug(id);
     if (!bug) {
@@ -44,8 +51,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
-    if (project.userId !== "user_demo_1" && project.userId !== userId) {
-      return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
+    // Demo content cannot be modified; defects can only be patched by the project owner
+    if (project.id === "proj_hackathon_demo" || project.userId !== auth.user.id) {
+      return NextResponse.json({ error: "Forbidden: Cannot modify bugs for projects you do not own." }, { status: 403 });
     }
 
     const body = await req.json();

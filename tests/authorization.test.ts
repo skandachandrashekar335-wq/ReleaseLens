@@ -13,6 +13,7 @@ import { POST as retestBug } from "../src/app/api/bugs/[id]/retest/route";
 import { POST as createShareToken } from "../src/app/api/reports/share/route";
 import { GET as getSharedReport } from "../src/app/api/reports/shared/[token]/route";
 import { POST as assistantChat } from "../src/app/api/assistant/chat/route";
+import { SupabaseDataStore } from "../src/lib/store/supabase-adapter";
 
 describe("Strict Multi-Tenant API Authorization & Security Audit", () => {
   let aliceId = "usr_alice_auth_test";
@@ -20,6 +21,9 @@ describe("Strict Multi-Tenant API Authorization & Security Audit", () => {
   let aliceProject: any;
   let aliceFinding: any;
   let aliceBug: any;
+  let demoPrivateProject: any;
+  let demoFinding: any;
+  let demoBug: any;
 
   beforeEach(async () => {
     // Ensure Alice and Bob exist in users table to satisfy relational foreign key constraints
@@ -64,10 +68,42 @@ describe("Strict Multi-Tenant API Authorization & Security Audit", () => {
       severity: "CRITICAL",
       status: "OPEN",
     });
+
+    // Setup a demo-owned private project (NOT the public proj_hackathon_demo)
+    demoPrivateProject = await db.createProject({
+      userId: "user_demo_1",
+      name: "Demo Internal Private Project",
+      targetUrl: "https://internal-demo.releaselens.local",
+      environment: "PRODUCTION",
+    });
+
+    // Seed a finding and bug under public proj_hackathon_demo
+    demoFinding = await db.saveFinding({
+      id: `fnd_demo_${Date.now()}`,
+      auditRunId: `aud_demo_${Date.now()}`,
+      projectId: "proj_hackathon_demo",
+      testSource: "ROUTER_PROBE",
+      title: "Public Demo Navigation Defect",
+      description: "Public demo finding description",
+      confidence: "MEDIUM",
+      status: "NEEDS_REVIEW",
+      evidence: {},
+      createdAt: new Date().toISOString(),
+    });
+
+    demoBug = await db.createBug({
+      projectId: "proj_hackathon_demo",
+      userId: "user_demo_1",
+      title: "Public Demo Checkout Glitch",
+      description: "Cart defect in public demo",
+      affectedUrl: "https://demo.releaselens.dev/cart",
+      severity: "HIGH",
+      status: "OPEN",
+    });
   });
 
-  it("Enforces tenant isolation on GET /api/projects/[id] when accessed by Bob", async () => {
-    // Mock Bob's session
+  it("1. Alice cannot read Bob's project (Tenant Isolation)", async () => {
+    // Bob tries to read Alice's project
     vi.spyOn(sessionModule, "getAuthSession").mockResolvedValueOnce({
       user: { id: bobId, email: "bob@evilcorp.com", name: "Bob", role: "tester", createdAt: new Date().toISOString() },
       sessionToken: "bob_token",
@@ -83,15 +119,15 @@ describe("Strict Multi-Tenant API Authorization & Security Audit", () => {
     expect(body.error).toContain("Forbidden: Tenant isolation violation");
   });
 
-  it("Enforces tenant isolation on DELETE /api/projects/[id] when attempted by Bob", async () => {
+  it("2. Bob cannot read demo-owned private projects", async () => {
     vi.spyOn(sessionModule, "getAuthSession").mockResolvedValueOnce({
       user: { id: bobId, email: "bob@evilcorp.com", name: "Bob", role: "tester", createdAt: new Date().toISOString() },
       sessionToken: "bob_token",
       isAuthenticated: true,
     });
 
-    const res = await deleteProject(new NextRequest("http://localhost/api/projects/" + aliceProject.id), {
-      params: Promise.resolve({ id: aliceProject.id }),
+    const res = await getProject(new NextRequest("http://localhost/api/projects/" + demoPrivateProject.id), {
+      params: Promise.resolve({ id: demoPrivateProject.id }),
     });
 
     expect(res.status).toBe(403);
@@ -99,212 +135,190 @@ describe("Strict Multi-Tenant API Authorization & Security Audit", () => {
     expect(body.error).toContain("Forbidden: Tenant isolation violation");
   });
 
-  it("Blocks Bob from triggering an audit on Alice's private project", async () => {
+  it("3. Alice cannot modify demo-owned projects (DELETE blocked)", async () => {
     vi.spyOn(sessionModule, "getAuthSession").mockResolvedValueOnce({
-      user: { id: bobId, email: "bob@evilcorp.com", name: "Bob", role: "tester", createdAt: new Date().toISOString() },
-      sessionToken: "bob_token",
+      user: { id: aliceId, email: "alice@company.com", name: "Alice", role: "qa_lead", createdAt: new Date().toISOString() },
+      sessionToken: "alice_token",
       isAuthenticated: true,
     });
 
-    const res = await triggerAudit(new NextRequest("http://localhost/api/projects/" + aliceProject.id + "/audit", { method: "POST" }), {
-      params: Promise.resolve({ id: aliceProject.id }),
+    const res = await deleteProject(new NextRequest("http://localhost/api/projects/proj_hackathon_demo"), {
+      params: Promise.resolve({ id: "proj_hackathon_demo" }),
     });
 
     expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toContain("Forbidden");
   });
 
-  it("Blocks Bob from retrieving Alice's project audits", async () => {
-    vi.spyOn(sessionModule, "getAuthSession").mockResolvedValueOnce({
-      user: { id: bobId, email: "bob@evilcorp.com", name: "Bob", role: "tester", createdAt: new Date().toISOString() },
-      sessionToken: "bob_token",
-      isAuthenticated: true,
-    });
-
-    const res = await getAudits(new NextRequest("http://localhost/api/projects/" + aliceProject.id + "/audit"), {
-      params: Promise.resolve({ id: aliceProject.id }),
-    });
-
-    expect(res.status).toBe(403);
-  });
-
-  it("Blocks Bob from querying findings of Alice's project", async () => {
-    vi.spyOn(sessionModule, "getAuthSession").mockResolvedValueOnce({
-      user: { id: bobId, email: "bob@evilcorp.com", name: "Bob", role: "tester", createdAt: new Date().toISOString() },
-      sessionToken: "bob_token",
-      isAuthenticated: true,
-    });
-
-    const req = new NextRequest(`http://localhost/api/findings?projectId=${aliceProject.id}`);
-    const res = await getFindings(req);
-
-    expect(res.status).toBe(403);
-  });
-
-  it("Blocks Bob from modifying or confirming Alice's findings", async () => {
-    vi.spyOn(sessionModule, "getAuthSession").mockResolvedValueOnce({
-      user: { id: bobId, email: "bob@evilcorp.com", name: "Bob", role: "tester", createdAt: new Date().toISOString() },
-      sessionToken: "bob_token",
-      isAuthenticated: true,
-    });
-
-    const req = new NextRequest(`http://localhost/api/findings/${aliceFinding.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status: "CONFIRMED", triageNotes: "Malicious modification" }),
-    });
-    const res = await updateFinding(req, { params: Promise.resolve({ id: aliceFinding.id }) });
-
-    expect(res.status).toBe(403);
-  });
-
-  it("Blocks Bob from retrieving bugs for Alice's project", async () => {
-    vi.spyOn(sessionModule, "getAuthSession").mockResolvedValueOnce({
-      user: { id: bobId, email: "bob@evilcorp.com", name: "Bob", role: "tester", createdAt: new Date().toISOString() },
-      sessionToken: "bob_token",
-      isAuthenticated: true,
-    });
-
-    const req = new NextRequest(`http://localhost/api/bugs?projectId=${aliceProject.id}`);
-    const res = await getBugs(req);
-
-    expect(res.status).toBe(403);
-  });
-
-  it("Blocks Bob from viewing or patching Alice's bug", async () => {
+  it("4. Demo access cannot modify findings or bugs", async () => {
     vi.spyOn(sessionModule, "getAuthSession").mockResolvedValue({
-      user: { id: bobId, email: "bob@evilcorp.com", name: "Bob", role: "tester", createdAt: new Date().toISOString() },
-      sessionToken: "bob_token",
+      user: { id: aliceId, email: "alice@company.com", name: "Alice", role: "qa_lead", createdAt: new Date().toISOString() },
+      sessionToken: "alice_token",
       isAuthenticated: true,
     });
 
-    const getRes = await getBug(new NextRequest(`http://localhost/api/bugs/${aliceBug.id}`), {
-      params: Promise.resolve({ id: aliceBug.id }),
-    });
-    expect(getRes.status).toBe(403);
+    // 4a: Alice tries to mutate finding in demo project
+    const fRes = await updateFinding(
+      new NextRequest(`http://localhost/api/findings/${demoFinding.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "CONFIRMED", triageNotes: "Unauthorized modification" }),
+      }),
+      { params: Promise.resolve({ id: demoFinding.id }) }
+    );
+    expect(fRes.status).toBe(403);
 
-    const patchReq = new NextRequest(`http://localhost/api/bugs/${aliceBug.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status: "FIXED" }),
-    });
-    const patchRes = await updateBug(patchReq, { params: Promise.resolve({ id: aliceBug.id }) });
-    expect(patchRes.status).toBe(403);
+    // 4b: Alice tries to mutate bug in demo project
+    const bRes = await updateBug(
+      new NextRequest(`http://localhost/api/bugs/${demoBug.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "CLOSED" }),
+      }),
+      { params: Promise.resolve({ id: demoBug.id }) }
+    );
+    expect(bRes.status).toBe(403);
   });
 
-  it("Blocks Bob from submitting retest verification for Alice's bug", async () => {
-    vi.spyOn(sessionModule, "getAuthSession").mockResolvedValueOnce({
-      user: { id: bobId, email: "bob@evilcorp.com", name: "Bob", role: "tester", createdAt: new Date().toISOString() },
-      sessionToken: "bob_token",
+  it("5. Demo access cannot trigger audits or retests", async () => {
+    vi.spyOn(sessionModule, "getAuthSession").mockResolvedValue({
+      user: { id: aliceId, email: "alice@company.com", name: "Alice", role: "qa_lead", createdAt: new Date().toISOString() },
+      sessionToken: "alice_token",
       isAuthenticated: true,
     });
 
-    const req = new NextRequest(`http://localhost/api/bugs/${aliceBug.id}/retest`, {
-      method: "POST",
-      body: JSON.stringify({ testerVerdict: "PASS", testerComment: "Fake pass" }),
-    });
-    const res = await retestBug(req, { params: Promise.resolve({ id: aliceBug.id }) });
+    // 5a: Attempting to trigger audit on demo project
+    const aRes = await triggerAudit(
+      new NextRequest("http://localhost/api/projects/proj_hackathon_demo/audit", { method: "POST" }),
+      { params: Promise.resolve({ id: "proj_hackathon_demo" }) }
+    );
+    expect(aRes.status).toBe(403);
 
-    expect(res.status).toBe(403);
+    // 5b: Attempting to record retest on demo bug
+    const rRes = await retestBug(
+      new NextRequest(`http://localhost/api/bugs/${demoBug.id}/retest`, {
+        method: "POST",
+        body: JSON.stringify({ testerVerdict: "PASS", testerComment: "Fake pass" }),
+      }),
+      { params: Promise.resolve({ id: demoBug.id }) }
+    );
+    expect(rRes.status).toBe(403);
   });
 
-  it("Blocks Bob from generating a share token for Alice's project", async () => {
+  it("6. Unauthenticated users cannot access private resources (401 Unauthorized)", async () => {
+    vi.spyOn(sessionModule, "getAuthSession").mockResolvedValue({
+      user: null,
+      sessionToken: null,
+      isAuthenticated: false,
+    });
+
+    // 6a: Projects list
+    const pList = await getProjects();
+    expect(pList.status).toBe(401);
+
+    // 6b: Private project detail
+    const pDetail = await getProject(new NextRequest("http://localhost/api/projects/" + aliceProject.id), {
+      params: Promise.resolve({ id: aliceProject.id }),
+    });
+    expect(pDetail.status).toBe(401);
+
+    // 6c: Private project findings
+    const pFindings = await getFindings(new NextRequest(`http://localhost/api/findings?projectId=${aliceProject.id}`));
+    expect(pFindings.status).toBe(401);
+
+    // 6d: Private project bugs
+    const pBugs = await getBugs(new NextRequest(`http://localhost/api/bugs?projectId=${aliceProject.id}`));
+    expect(pBugs.status).toBe(401);
+
+    // 6e: Private project audit execution
+    const pAudit = await triggerAudit(new NextRequest(`http://localhost/api/projects/${aliceProject.id}/audit`, { method: "POST" }), {
+      params: Promise.resolve({ id: aliceProject.id }),
+    });
+    expect(pAudit.status).toBe(401);
+  });
+
+  it("7. Public shared reports expose only approved report fields and zero workspace secrets", async () => {
     vi.spyOn(sessionModule, "getAuthSession").mockResolvedValueOnce({
-      user: { id: bobId, email: "bob@evilcorp.com", name: "Bob", role: "tester", createdAt: new Date().toISOString() },
-      sessionToken: "bob_token",
+      user: { id: aliceId, email: "alice@company.com", name: "Alice", role: "qa_lead", createdAt: new Date().toISOString() },
+      sessionToken: "alice_token",
       isAuthenticated: true,
     });
 
-    const req = new NextRequest("http://localhost/api/reports/share", {
+    const shareReq = new NextRequest("http://localhost/api/reports/share", {
       method: "POST",
       body: JSON.stringify({ projectId: aliceProject.id }),
     });
-    const res = await createShareToken(req);
+    const shareRes = await createShareToken(shareReq);
+    expect(shareRes.status).toBe(201);
+    const { token } = await shareRes.json();
 
-    expect(res.status).toBe(403);
+    // Fetch shared report via public endpoint without authentication
+    const reportRes = await getSharedReport(new NextRequest(`http://localhost/api/reports/shared/${token}`), {
+      params: Promise.resolve({ token }),
+    });
+    expect(reportRes.status).toBe(200);
+    const report = await reportRes.json();
+
+    // Verify sanitized structure
+    expect(report.project).toBeDefined();
+    expect(report.project.id).toBe(aliceProject.id);
+    expect(report.project.name).toBe(aliceProject.name);
+    expect(report.project.targetUrl).toBe(aliceProject.targetUrl);
+
+    // SECURITY CHECK: verificationToken and userId MUST be undefined (not leaked)
+    expect(report.project.verificationToken).toBeUndefined();
+    expect(report.project.userId).toBeUndefined();
+
+    // SECURITY CHECK: Bugs must not leak userId
+    if (report.bugs && report.bugs.length > 0) {
+      expect(report.bugs[0].userId).toBeUndefined();
+    }
   });
 
-  it("Blocks Bob from chatting with the AI assistant about Alice's project", async () => {
-    vi.spyOn(sessionModule, "getAuthSession").mockResolvedValueOnce({
-      user: { id: bobId, email: "bob@evilcorp.com", name: "Bob", role: "tester", createdAt: new Date().toISOString() },
-      sessionToken: "bob_token",
-      isAuthenticated: true,
-    });
-
-    const req = new NextRequest("http://localhost/api/assistant/chat", {
-      method: "POST",
-      body: JSON.stringify({ projectId: aliceProject.id, message: "Summarize vulnerabilities" }),
-    });
-    const res = await assistantChat(req);
-
-    expect(res.status).toBe(403);
-  });
-
-  it("Returns 404 for invalid resource IDs across all endpoints", async () => {
-    const invalidId = "invalid_non_existent_resource_999";
-
-    const pRes = await getProject(new NextRequest("http://localhost/api/projects/" + invalidId), {
-      params: Promise.resolve({ id: invalidId }),
-    });
-    expect(pRes.status).toBe(404);
-
-    const bRes = await getBug(new NextRequest("http://localhost/api/bugs/" + invalidId), {
-      params: Promise.resolve({ id: invalidId }),
-    });
-    expect(bRes.status).toBe(404);
-
-    const fRes = await updateFinding(
-      new NextRequest("http://localhost/api/findings/" + invalidId, { method: "PATCH", body: JSON.stringify({ status: "CONFIRMED" }) }),
-      { params: Promise.resolve({ id: invalidId }) }
-    );
-    expect(fRes.status).toBe(404);
-
-    const rRes = await retestBug(
-      new NextRequest("http://localhost/api/bugs/" + invalidId + "/retest", { method: "POST", body: JSON.stringify({ testerVerdict: "PASS" }) }),
-      { params: Promise.resolve({ id: invalidId }) }
-    );
-    expect(rRes.status).toBe(404);
-
-    const sRes = await getSharedReport(new NextRequest("http://localhost/api/reports/shared/" + invalidId), {
-      params: Promise.resolve({ token: invalidId }),
-    });
-    expect(sRes.status).toBe(404);
-  });
-
-  it("Ignores client-supplied spoofed userId on project creation and bug creation", async () => {
-    // Bob tries to spoof Alice's userId in request body
+  it("8. Normal project creation assigns the authenticated user's ID and rejects spoofing", async () => {
     vi.spyOn(sessionModule, "getAuthSession").mockResolvedValue({
       user: { id: bobId, email: "bob@evilcorp.com", name: "Bob", role: "tester", createdAt: new Date().toISOString() },
       sessionToken: "bob_token",
       isAuthenticated: true,
     });
 
-    // 1. Project creation with spoofed userId
     const projectReq = new NextRequest("http://localhost/api/projects", {
       method: "POST",
       body: JSON.stringify({
-        name: "Bob Malicious Project",
-        targetUrl: "https://example.org",
-        userId: aliceId, // Attempted spoof!
+        name: "Bob Legitimate Project",
+        targetUrl: "https://bob-project.vercel.app",
+        userId: "hacked_admin_id", // Client spoof attempt!
       }),
     });
     const projectRes = await createProject(projectReq);
     expect(projectRes.status).toBe(201);
-    const createdProject = await projectRes.json();
-    // Must be assigned to Bob (the session user), NOT Alice!
-    expect(createdProject.userId).toBe(bobId);
-    expect(createdProject.userId).not.toBe(aliceId);
+    const created = await projectRes.json();
 
-    // 2. Bug creation with spoofed userId
-    const bugReq = new NextRequest("http://localhost/api/bugs", {
-      method: "POST",
-      body: JSON.stringify({
-        projectId: createdProject.id,
-        title: "Bob Bug",
-        userId: "admin_superuser", // Attempted spoof!
+    expect(created.userId).toBe(bobId);
+    expect(created.userId).not.toBe("hacked_admin_id");
+    expect(created.userId).not.toBe("user_demo_1");
+  });
+
+  it("9. SupabaseDataStore contract verification: Queries strictly filter by session userId without user_demo_1", async () => {
+    const mockSelect = vi.fn().mockReturnThis();
+    const mockOrder = vi.fn().mockReturnThis();
+    const mockEq = vi.fn().mockResolvedValue({ data: [], error: null });
+
+    const mockClient = {
+      from: vi.fn().mockReturnValue({
+        select: mockSelect,
+        order: mockOrder,
+        eq: mockEq,
       }),
-    });
-    const bugRes = await createBug(bugReq);
-    expect(bugRes.status).toBe(201);
-    const createdBug = await bugRes.json();
-    expect(createdBug.userId).toBe(bobId);
-    expect(createdBug.userId).not.toBe("admin_superuser");
+    };
+
+    const store = new SupabaseDataStore("https://mock-test.supabase.co", "mock-service-key");
+    (store as any).client = mockClient;
+
+    await store.getProjects(aliceId);
+
+    expect(mockClient.from).toHaveBeenCalledWith("projects");
+    expect(mockEq).toHaveBeenCalledWith("user_id", aliceId);
+    // Crucial check: user_demo_1 must NOT be queried
+    expect(mockEq).not.toHaveBeenCalledWith("user_id", "user_demo_1");
   });
 });

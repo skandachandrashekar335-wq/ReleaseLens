@@ -35,6 +35,7 @@
 | **ADR-024** | Native Persistent SQLite Database Storage Engine & Supabase Migration Layer | 2026-11-04 | `ACCEPTED` |
 | **ADR-025** | Embedded Headless Playwright Browser Worker with Strict DNS/IP SSRF Guard | 2026-11-04 | `ACCEPTED` |
 | **ADR-026** | Server-Side IDOR Enforcement & Fail-Closed Production Providers | 2026-11-04 | `ACCEPTED` |
+| **ADR-027** | Elimination of Shared-Demo Tenant Access & Strict Zero-Trust Authorization | 2026-11-04 | `ACCEPTED` |
 
 ---
 
@@ -117,3 +118,25 @@ In post-ship security auditing of multi-tenant cloud operations:
    - In `src/app/api/auth/google/route.ts`, if `process.env.NODE_ENV === "production"`, unauthenticated mock queries are rejected with `503 Service Unavailable`.
 4. **App Router Metadata Integrity**:
    - Next.js 15 requires valid static icon assets in `public/` to prevent React Server Component manifest resolution errors during SSR. Added `public/favicon.ico`.
+
+
+---
+
+## ADR-027: Elimination of Shared-Demo Tenant Access & Strict Zero-Trust Authorization
+
+### Context
+Allowing `project.userId === "user_demo_1"` as a blanket bypass in Supabase adapter queries and API routes created shared-tenant access where any user could view or mutate demo-owned resources, and unauthenticated requests fell back to the demo identity.
+
+### Decision
+1. **Total Removal of Shared Demo Fallback**:
+   - Eliminated `user_demo_1` fallbacks from `getAuthSession()`, `db-adapter.ts`, `supabase-adapter.ts`, and all API route authorization checks.
+2. **Strict Session-Bound Multi-Tenancy**:
+   - Every authenticated request accesses ONLY resources where `project.userId === auth.user.id`.
+   - Client-supplied `userId` parameters in request bodies are discarded; identity is strictly derived from the validated server session cookie/token.
+3. **Dedicated Public Read-Only Demo Mechanism**:
+   - Designated project `proj_hackathon_demo` is explicitly read-only.
+   - Demo content cannot be modified, deleted, audited, or retested by arbitrary users.
+4. **Isolated Guest Provisioning**:
+   - Unauthenticated visitors submitting URLs on the landing page are provisioned an isolated guest tenant session, ensuring every user operates exclusively within their own private partition.
+5. **Report Sanitization**:
+   - Public shared reports strictly filter workspace secrets, stripping `verificationToken` and `userId` from project and defect payloads.

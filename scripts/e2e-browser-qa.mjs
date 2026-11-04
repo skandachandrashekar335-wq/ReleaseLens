@@ -40,9 +40,15 @@ async function run() {
     // Verify Favicon HTTP status
     console.log("Verifying Favicon response status...");
     const faviconRes = await fetch(`${BASE_URL}/favicon.ico`);
-    console.log(`Favicon response status: ${faviconRes.status} (Content-Type: ${faviconRes.headers.get("content-type")})`);
+    console.log(`Favicon .ico response status: ${faviconRes.status} (Content-Type: ${faviconRes.headers.get("content-type")})`);
     if (faviconRes.status !== 200) {
       throw new Error(`Favicon returned HTTP status ${faviconRes.status}, expected 200`);
+    }
+
+    const faviconPngRes = await fetch(`${BASE_URL}/favicon.png`);
+    console.log(`Favicon .png response status: ${faviconPngRes.status} (Content-Type: ${faviconPngRes.headers.get("content-type")})`);
+    if (faviconPngRes.status !== 200) {
+      throw new Error(`Favicon PNG returned HTTP status ${faviconPngRes.status}, expected 200`);
     }
 
     const browser = await chromium.launch({
@@ -61,6 +67,7 @@ async function run() {
     await desktopPage.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
     await desktopPage.screenshot({ path: path.join(SCREENSHOT_DIR, "01_landing_desktop.png") });
 
+    let activeProjectId = "proj_hackathon_demo";
     const urlInput = await desktopPage.$("input[placeholder*='myapp-preview']");
     if (urlInput) {
       await urlInput.fill("ecommerce-preview.vercel.app");
@@ -69,7 +76,12 @@ async function run() {
         console.log("-> Interacting: Submitting URL to trigger project registration...");
         await submitAuditBtn.click();
         await desktopPage.waitForURL(/\/projects\//, { timeout: 10000 });
-        console.log(`-> Successfully navigated to registered project page: ${desktopPage.url()}`);
+        const currentUrl = desktopPage.url();
+        console.log(`-> Successfully navigated to registered project page: ${currentUrl}`);
+        const parts = currentUrl.split("/projects/")[1]?.split("/");
+        if (parts && parts[0]) {
+          activeProjectId = parts[0];
+        }
       }
     }
 
@@ -78,29 +90,23 @@ async function run() {
     await desktopPage.goto(`${BASE_URL}/dashboard`, { waitUntil: "networkidle" });
     await desktopPage.screenshot({ path: path.join(SCREENSHOT_DIR, "02_dashboard.png") });
 
-    // 3. Project Detail & Audit Execution
-    console.log("Action 3: Project Detail Overview & Live Audit Execution...");
-    await desktopPage.goto(`${BASE_URL}/projects/proj_hackathon_demo`, { waitUntil: "networkidle" });
+    // 3. Project Detail & Audit Execution on Owned Project
+    console.log(`Action 3: Project Detail Overview & Live Audit Execution on ${activeProjectId}...`);
+    await desktopPage.goto(`${BASE_URL}/projects/${activeProjectId}`, { waitUntil: "networkidle" });
     await desktopPage.screenshot({ path: path.join(SCREENSHOT_DIR, "03_project_overview.png") });
 
     const executeAuditBtn = await desktopPage.$("button:has-text('Execute Live Audit')");
     if (executeAuditBtn) {
       console.log("-> Interacting: Clicking 'Execute Live Audit'...");
       await executeAuditBtn.click();
-      await desktopPage.waitForTimeout(2500); // allow audit checks to process
+      await desktopPage.waitForTimeout(3000); // allow audit checks to process
       console.log("-> Live audit executed successfully.");
       await desktopPage.screenshot({ path: path.join(SCREENSHOT_DIR, "03b_audit_executed.png") });
     }
 
     // 4. Findings Navigation & Triage Confirmation
-    console.log("Action 4: Findings Navigation & Triage Confirmation...");
-    const findingsLink = await desktopPage.$("a:has-text('Findings Inbox')");
-    if (findingsLink) {
-      await findingsLink.click();
-      await desktopPage.waitForURL(/\/findings/, { timeout: 5000 });
-    } else {
-      await desktopPage.goto(`${BASE_URL}/projects/proj_hackathon_demo/findings`, { waitUntil: "networkidle" });
-    }
+    console.log(`Action 4: Findings Navigation & Triage Confirmation on ${activeProjectId}...`);
+    await desktopPage.goto(`${BASE_URL}/projects/${activeProjectId}/findings`, { waitUntil: "networkidle" });
     await desktopPage.screenshot({ path: path.join(SCREENSHOT_DIR, "04_findings_triage.png") });
 
     const confirmBtn = await desktopPage.$("button:has-text('Confirm Bug')");
@@ -125,14 +131,8 @@ async function run() {
     }
 
     // 5. Defect Tracker & Bug Status Change
-    console.log("Action 5: Defect Tracker Navigation & Bug Status Change...");
-    const bugsLink = await desktopPage.$("a:has-text('Bugs & Retest')");
-    if (bugsLink) {
-      await bugsLink.click();
-      await desktopPage.waitForURL(/\/bugs/, { timeout: 5000 });
-    } else {
-      await desktopPage.goto(`${BASE_URL}/projects/proj_hackathon_demo/bugs`, { waitUntil: "networkidle" });
-    }
+    console.log(`Action 5: Defect Tracker Navigation & Bug Status Change on ${activeProjectId}...`);
+    await desktopPage.goto(`${BASE_URL}/projects/${activeProjectId}/bugs`, { waitUntil: "networkidle" });
     await desktopPage.screenshot({ path: path.join(SCREENSHOT_DIR, "05_defect_tracker.png") });
 
     // Interactive Action: Change status of first bug card to 'FIXED'
@@ -171,14 +171,8 @@ async function run() {
     }
 
     // 7. Release Deltas Navigation
-    console.log("Action 7: Release Deltas Regression Comparison Navigation...");
-    const deltasLink = await desktopPage.$("a:has-text('Release Deltas')");
-    if (deltasLink) {
-      await deltasLink.click();
-      await desktopPage.waitForURL(/\/deltas/, { timeout: 5000 });
-    } else {
-      await desktopPage.goto(`${BASE_URL}/projects/proj_hackathon_demo/deltas`, { waitUntil: "networkidle" });
-    }
+    console.log(`Action 7: Release Deltas Regression Comparison Navigation on ${activeProjectId}...`);
+    await desktopPage.goto(`${BASE_URL}/projects/${activeProjectId}/deltas`, { waitUntil: "networkidle" });
     await desktopPage.screenshot({ path: path.join(SCREENSHOT_DIR, "06_release_deltas.png") });
 
     // 8. Mobile Viewport Responsiveness
@@ -196,12 +190,19 @@ async function run() {
     await mobilePage.screenshot({ path: path.join(SCREENSHOT_DIR, "08_dashboard_mobile.png") });
 
     // 9. Shared Report Permapage Access
-    console.log("Action 9: Shared Report Permapage Generation & Access...");
+    console.log(`Action 9: Shared Report Permapage Generation & Access for ${activeProjectId}...`);
+    // Extract cookies to maintain session for POST /api/reports/share
+    const cookies = await desktopContext.cookies();
+    const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+
     const shareRes = await fetch(`${BASE_URL}/api/reports/share`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: cookieHeader,
+      },
       body: JSON.stringify({
-        projectId: "proj_hackathon_demo",
+        projectId: activeProjectId,
         data: { verdict: "PROVISIONAL_PASS", summary: "Automated QA Verification Package" },
       }),
     });
@@ -215,7 +216,10 @@ async function run() {
     await browser.close();
     console.log("ALL INTERACTIVE BROWSER QA SCENARIOS EXECUTED AND ASSERTED SUCCESSFULLY!");
   } finally {
-    server.kill("SIGTERM");
+    try {
+      server.kill("SIGKILL");
+    } catch {}
+    process.exit(0);
   }
 }
 

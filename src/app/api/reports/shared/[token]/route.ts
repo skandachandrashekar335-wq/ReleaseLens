@@ -33,16 +33,45 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
       createdAt: project.createdAt,
     };
 
+    const sanitizedAudit = audit
+      ? {
+          id: audit.id,
+          projectId: audit.projectId,
+          targetUrl: audit.targetUrl,
+          environment: audit.environment,
+          status: audit.status,
+          startedAt: audit.startedAt,
+          completedAt: audit.completedAt,
+          summary: audit.summary,
+          checks: audit.checks,
+          rqiScore: audit.rqiScore,
+        }
+      : null;
+
+    const sanitizedBugs = bugs.map((b) => ({
+      id: b.id,
+      title: b.title,
+      description: b.description,
+      affectedUrl: b.affectedUrl,
+      stepsToReproduce: b.stepsToReproduce,
+      expectedResult: b.expectedResult,
+      actualResult: b.actualResult,
+      severity: b.severity,
+      status: b.status,
+      retestCount: b.retestCount,
+      createdAt: b.createdAt,
+    }));
+
     const payload = {
       project: sanitizedProject,
-      audit: audit || null,
+      audit: sanitizedAudit,
       rqi: rqi || null,
       findings,
-      bugs,
+      bugs: sanitizedBugs,
       data: {
         project: sanitizedProject,
         rqi: rqi || null,
-        bugs,
+        bugs: sanitizedBugs,
       },
     };
 

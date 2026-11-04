@@ -5,7 +5,10 @@ import { getAuthSession } from "@/lib/auth/session";
 export async function POST(req: Request) {
   try {
     const auth = await getAuthSession();
-    const userId = auth.user?.id || "user_demo_1";
+    if (!auth.user || !auth.isAuthenticated) {
+      return NextResponse.json({ error: "Unauthorized: Valid session required" }, { status: 401 });
+    }
+    const userId = auth.user.id;
 
     const body = await req.json();
     const { projectId, auditId, data } = body;
@@ -19,8 +22,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    if (project.userId !== "user_demo_1" && project.userId !== userId) {
-      return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
+    // Reports can only be shared by the verified project owner (or sample demo project)
+    if (project.userId !== userId && project.id !== "proj_hackathon_demo") {
+      return NextResponse.json({ error: "Forbidden: Cannot share reports for projects you do not own." }, { status: 403 });
     }
 
     const token = await db.createShareToken(projectId, auditId, data);

@@ -4,6 +4,25 @@ All notable changes to the ReleaseLens project are documented in this file in ad
 
 ---
 
+## [0.6.0] - 2026-11-04 — Elimination of Shared Demo Tenant Access & Zero-Trust Authorization
+
+### Security Hardening
+- **Complete Elimination of Shared Demo Tenant Access**:
+  - Removed `user_demo_1` blanket authorization exception across all API routes (`/api/projects`, `/api/projects/[id]`, `/api/projects/[id]/audit`, `/api/findings`, `/api/findings/[id]`, `/api/bugs`, `/api/bugs/[id]`, `/api/bugs/[id]/retest`, `/api/reports/share`, `/api/assistant/chat`).
+  - Removed `user_demo_1` fallback from `getAuthSession()`. Unauthenticated requests return `user: null, isAuthenticated: false`.
+  - Removed `user_demo_1` filtering and fallback in `SupabaseDataStore` and `PersistentDataStore`.
+- **Public Read-Only Demo Mechanism**:
+  - Established dedicated read-only policy for `proj_hackathon_demo`. Allows public preview of demo audits and findings, but strictly blocks project deletion, audit execution, findings triage, defect creation, bug updates, and retest submissions (`403 Forbidden`).
+- **Zero-Trust Multi-Tenancy**:
+  - All authenticated requests access ONLY resources where `project.userId === auth.user.id`.
+  - Discarded client-supplied `userId` parameters in request bodies; session identity is strictly bound to validated server cookies.
+- **Shared Report Secret Whitelist**:
+  - `src/app/api/reports/shared/[token]/route.ts`: Exposes only approved report fields. Strips `verificationToken` and `userId` from project and defect payloads.
+- **Expanded Security Regression Test Suite**:
+  - `tests/authorization.test.ts`: Verified 9 comprehensive multi-tenant isolation scenarios covering Alice vs Bob isolation, demo immutability, unauthenticated 401 gates, client spoofing prevention, and SupabaseDataStore query contract verification.
+
+---
+
 ## [0.5.0] - 2026-11-04 — Post-Ship Security Audit & Production Fail-Closed Hardening
 
 ### Added

@@ -8,7 +8,11 @@ export const metadata: Metadata = {
   description:
     "Cloud-hosted Web Application Testing, Bug Discovery, Evidence Collection, and Release-Readiness Platform. Bounded automated quality audits and human triage workflows.",
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon.png", type: "image/png" },
+    ],
+    apple: "/favicon.png",
   },
 };
 

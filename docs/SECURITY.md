@@ -86,18 +86,22 @@ ReleaseLens enforces a **deny-by-default** data collection model:
 
 ---
 
-## 4. Multi-Tenant Server-Side IDOR Enforcement
+## 4. Multi-Tenant Server-Side IDOR Enforcement & Zero-Trust Authorization
 
-Because the backend database adapter uses `SUPABASE_SERVICE_ROLE_KEY` in production, PostgreSQL Row Level Security (RLS) policies are bypassed automatically. ReleaseLens therefore enforces explicit application-level tenant isolation in TypeScript:
+Because the backend database adapter uses `SUPABASE_SERVICE_ROLE_KEY` in production, PostgreSQL Row Level Security (RLS) policies are bypassed automatically. ReleaseLens therefore enforces strict application-level zero-trust tenant isolation in TypeScript (ADR-027):
 
-1. **Project Ownership Verification**:
-   - `GET /api/projects/[id]`, `DELETE /api/projects/[id]`, `POST /api/projects/[id]/audit`
+1. **Strict Ownership Verification**:
+   - `GET /api/projects`, `GET /api/projects/[id]`, `DELETE /api/projects/[id]`, `POST /api/projects/[id]/audit`
    - `GET /api/findings?projectId=...`, `GET /api/bugs?projectId=...`
    - `POST /api/assistant/chat`
-   - Every handler extracts the caller's authenticated `userId` from the session token and fetches the project record. If `project.userId !== userId && project.userId !== "user_demo_1"`, the request is rejected with `403 Forbidden`.
+   - Every handler extracts the caller's authenticated `userId` from the session token and verifies `project.userId === auth.user.id`. The shared `user_demo_1` bypass has been completely eliminated. Unauthenticated access returns `401 Unauthorized`; cross-tenant access returns `403 Forbidden`.
 
-2. **Entity Scoping**:
-   - Updates to findings (`PATCH /api/findings/[id]`) and bugs (`PATCH /api/bugs/[id]`, `POST /api/bugs/[id]/retest`) fetch the parent project and verify tenant access prior to executing writes.
+2. **Dedicated Read-Only Public Demo Scope**:
+   - Only the designated sample project `proj_hackathon_demo` is publicly viewable.
+   - Demo content is strictly immutable: attempts to delete the demo project, execute audits, triage findings, modify bugs, or record retests are rejected with `403 Forbidden`.
+
+3. **Entity Scoping & Write Protection**:
+   - Writes to findings (`PATCH /api/findings/[id]`), bugs (`POST /api/bugs`, `PATCH /api/bugs/[id]`), and retests (`POST /api/bugs/[id]/retest`) require authenticated ownership of the parent project. Client-supplied `userId` parameters in request payloads are discarded in favor of the verified session identity.
 
 ---
 

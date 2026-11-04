@@ -21,10 +21,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Tenant isolation check
-    const effectiveUserId = userId || "user_demo_1";
-    if (project.userId !== "user_demo_1" && project.userId !== effectiveUserId) {
-      return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
+    // Tenant isolation: public demo project permits read-only copilot analysis; private projects require exact ownership
+    if (project.id !== "proj_hackathon_demo") {
+      if (!auth.user || !auth.isAuthenticated) {
+        return NextResponse.json({ error: "Unauthorized: Valid session required" }, { status: 401 });
+      }
+      if (project.userId !== auth.user.id) {
+        return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
+      }
     }
 
     const audits = await db.getAuditsForProject(projectId);

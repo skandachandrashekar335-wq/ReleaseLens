@@ -384,7 +384,7 @@ export class PersistentDataStore implements IDataStore {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
-      project.userId || "user_demo_1",
+      project.userId || null,
       project.name,
       project.targetUrl,
       project.environment || "PREVIEW",
@@ -397,7 +397,7 @@ export class PersistentDataStore implements IDataStore {
     return {
       ...project,
       id,
-      userId: project.userId || "user_demo_1",
+      userId: project.userId,
       isVerified: !!project.isVerified,
       verificationToken,
       createdAt: now,
@@ -552,7 +552,7 @@ export class PersistentDataStore implements IDataStore {
     `).run(
       id,
       bug.projectId,
-      bug.userId || "user_demo_1",
+      bug.userId || null,
       bug.sourceFindingId || null,
       bug.title,
       bug.description || null,
@@ -608,7 +608,7 @@ export class PersistentDataStore implements IDataStore {
     `).run(
       id,
       retest.bugReportId,
-      retest.userId || "user_demo_1",
+      retest.userId || null,
       retest.tester || "QA Tester",
       retest.previousStatus,
       retest.newStatus,
@@ -628,7 +628,7 @@ export class PersistentDataStore implements IDataStore {
     return {
       id,
       bugReportId: retest.bugReportId,
-      userId: retest.userId || "user_demo_1",
+      userId: retest.userId,
       tester: retest.tester || "QA Tester",
       previousStatus: retest.previousStatus,
       newStatus: updatedStatus,

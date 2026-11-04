@@ -137,7 +137,7 @@ export class SupabaseDataStore implements IDataStore {
   async getProjects(userId?: string): Promise<Project[]> {
     let query = this.client.from("projects").select("*").order("created_at", { ascending: false });
     if (userId) {
-      query = query.or(`user_id.eq.${userId},user_id.eq.user_demo_1`);
+      query = query.eq("user_id", userId);
     }
 
     const { data, error } = await query;
@@ -158,7 +158,7 @@ export class SupabaseDataStore implements IDataStore {
   async getProject(id: string, userId?: string): Promise<Project | null> {
     let query = this.client.from("projects").select("*").eq("id", id);
     if (userId) {
-      query = query.or(`user_id.eq.${userId},user_id.eq.user_demo_1`);
+      query = query.eq("user_id", userId);
     }
 
     const { data, error } = await query.maybeSingle();
@@ -187,7 +187,7 @@ export class SupabaseDataStore implements IDataStore {
       .from("projects")
       .insert({
         id,
-        user_id: project.userId || "user_demo_1",
+        user_id: project.userId,
         name: project.name,
         target_url: project.targetUrl,
         environment: project.environment || "PREVIEW",
@@ -393,7 +393,7 @@ export class SupabaseDataStore implements IDataStore {
       .insert({
         id,
         project_id: bug.projectId,
-        user_id: bug.userId || "user_demo_1",
+        user_id: bug.userId,
         source_finding_id: bug.sourceFindingId || null,
         title: bug.title,
         description: bug.description || null,
@@ -501,7 +501,7 @@ export class SupabaseDataStore implements IDataStore {
     const { error } = await this.client.from("retest_history").insert({
       id,
       bug_report_id: retest.bugReportId,
-      user_id: retest.userId || "user_demo_1",
+      user_id: retest.userId,
       tester: retest.tester || "QA Tester",
       previous_status: retest.previousStatus,
       new_status: retest.newStatus,
@@ -522,7 +522,7 @@ export class SupabaseDataStore implements IDataStore {
     return {
       id,
       bugReportId: retest.bugReportId,
-      userId: retest.userId || "user_demo_1",
+      userId: retest.userId,
       tester: retest.tester || "QA Tester",
       previousStatus: retest.previousStatus,
       newStatus: updatedStatus,

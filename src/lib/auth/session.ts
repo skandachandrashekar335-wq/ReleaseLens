@@ -30,20 +30,17 @@ export async function getAuthSession(): Promise<AuthContext> {
   }
 
   if (!sessionToken) {
-    // Check if demo user exists in DB
-    const demoUser = await db.getUser("user_demo_1");
     return {
-      user: demoUser,
+      user: null,
       sessionToken: null,
-      isAuthenticated: !!demoUser,
+      isAuthenticated: false,
     };
   }
 
   const session = await db.getSession(sessionToken);
   if (!session) {
-    const demoUser = await db.getUser("user_demo_1");
     return {
-      user: demoUser,
+      user: null,
       sessionToken: null,
       isAuthenticated: false,
     };
