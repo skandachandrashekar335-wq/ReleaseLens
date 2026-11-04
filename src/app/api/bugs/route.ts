@@ -10,6 +10,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "projectId query param is required" }, { status: 400 });
     }
 
+    const auth = await getAuthSession();
+    const userId = auth.user?.id || "user_demo_1";
+
+    const project = await db.getProject(projectId);
+    if (!project) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+    if (project.userId !== "user_demo_1" && project.userId !== userId) {
+      return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
+    }
+
     const bugs = await db.getBugsForProject(projectId);
     return NextResponse.json(bugs, {
       headers: { "X-Total-Count": String(bugs.length) },

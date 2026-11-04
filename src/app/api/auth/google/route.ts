@@ -37,6 +37,57 @@ export async function GET(req: Request) {
       return NextResponse.redirect(authEndpoint);
     }
 
+    // If an authorization code was returned from Supabase OAuth
+    if (code && supabaseUrl && !supabaseUrl.includes("placeholder")) {
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+      const { createClient } = await import("@supabase/supabase-js");
+      const supabase = createClient(supabaseUrl, anonKey);
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+      if (error || !data.user) {
+        return NextResponse.redirect(
+          new URL(`/login?error=${encodeURIComponent(error?.message || "OAuth exchange failed")}`, url.origin)
+        );
+      }
+
+      const email = data.user.email || "qa.engineer@company.com";
+      const name = data.user.user_metadata?.full_name || data.user.user_metadata?.name || email.split("@")[0];
+      const avatarUrl = data.user.user_metadata?.avatar_url || data.user.user_metadata?.picture;
+
+      let user = await db.getUserByEmail(email);
+      if (!user) {
+        user = await db.createUser({
+          id: data.user.id,
+          email,
+          name,
+          avatarUrl,
+          role: "qa_engineer",
+        });
+      }
+
+      const session = await db.createSession(user.id);
+      const response = NextResponse.redirect(new URL("/dashboard", url.origin));
+      response.cookies.set(SESSION_COOKIE_NAME, session.token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 86400 * 14,
+        path: "/",
+      });
+
+      return response;
+    }
+
+    // In production without valid external OAuth credentials, fail closed (no unauthenticated mock logins)
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json(
+        {
+          error: "Google OAuth provider is BLOCKED: Production deployment requires NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY with Google OAuth configured.",
+          status: "BLOCKED",
+        },
+        { status: 503 }
+      );
+    }
+
     // In local / demo mode without Supabase OAuth credentials, provide one-click Google Sign-In verification
     const email = url.searchParams.get("email") || "qa.engineer@company.com";
     const name = url.searchParams.get("name") || "Google QA Tester";
@@ -56,7 +107,7 @@ export async function GET(req: Request) {
     const response = NextResponse.redirect(new URL("/dashboard", url.origin));
     response.cookies.set(SESSION_COOKIE_NAME, session.token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: false, // non-production development cookie
       sameSite: "lax",
       maxAge: 86400 * 14,
       path: "/",

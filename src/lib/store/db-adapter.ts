@@ -818,9 +818,31 @@ export class PersistentDataStore implements IDataStore {
   }
 }
 
+export function createDataStore(): IDataStore {
+  const provider = process.env.DATABASE_PROVIDER;
+
+  if (provider === "supabase") {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey || supabaseUrl.includes("placeholder")) {
+      throw new Error(
+        "FATAL PRODUCTION CONFIGURATION ERROR: DATABASE_PROVIDER is set to 'supabase', but valid NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are missing. Silent fallback to SQLite is disallowed."
+      );
+    }
+
+    const { SupabaseDataStore } = require("./supabase-adapter");
+    return new SupabaseDataStore(supabaseUrl, supabaseKey);
+  }
+
+  return new PersistentDataStore(
+    process.env.DATABASE_URL?.startsWith("file:")
+      ? process.env.DATABASE_URL.replace("file:", "")
+      : "./data/releaselens.db"
+  );
+}
+
 // Global persistent database singleton
-export const db = new PersistentDataStore(
-  process.env.DATABASE_URL?.startsWith("file:")
-    ? process.env.DATABASE_URL.replace("file:", "")
-    : "./data/releaselens.db"
-);
+export const db: IDataStore = createDataStore();

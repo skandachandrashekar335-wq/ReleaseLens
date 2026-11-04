@@ -61,13 +61,58 @@ async function run() {
     await desktopPage.goto(`${BASE_URL}/projects/proj_hackathon_demo`, { waitUntil: "networkidle" });
     await desktopPage.screenshot({ path: path.join(SCREENSHOT_DIR, "03_project_overview.png") });
 
-    console.log("Testing 4: Findings Triage Queue...");
+    console.log("Testing 4: Findings Triage Queue with Real User Interaction...");
     await desktopPage.goto(`${BASE_URL}/projects/proj_hackathon_demo/findings`, { waitUntil: "networkidle" });
     await desktopPage.screenshot({ path: path.join(SCREENSHOT_DIR, "04_findings_triage.png") });
 
-    console.log("Testing 5: Confirmed Defect Tracker...");
+    // Interactive Action 1: Triage a potential finding
+    const confirmBtn = await desktopPage.$("button:has-text('Confirm Bug')");
+    if (confirmBtn) {
+      console.log("-> Interacting: Clicking 'Confirm Bug' to open Triage Modal...");
+      await confirmBtn.click();
+      await desktopPage.waitForTimeout(500);
+      await desktopPage.screenshot({ path: path.join(SCREENSHOT_DIR, "04b_triage_modal_open.png") });
+
+      const notesTextarea = await desktopPage.$("textarea");
+      if (notesTextarea) {
+        await notesTextarea.fill("Verified via Playwright E2E interactive test: anomaly confirmed as real bug.");
+      }
+
+      const submitConfirm = await desktopPage.$("button:has-text('Confirm as Verified Bug')");
+      if (submitConfirm) {
+        console.log("-> Interacting: Submitting 'Confirm as Verified Bug'...");
+        await submitConfirm.click();
+        await desktopPage.waitForTimeout(1000);
+      }
+    }
+
+    console.log("Testing 5: Confirmed Defect Tracker with Real Retest Interaction...");
     await desktopPage.goto(`${BASE_URL}/projects/proj_hackathon_demo/bugs`, { waitUntil: "networkidle" });
     await desktopPage.screenshot({ path: path.join(SCREENSHOT_DIR, "05_defect_tracker.png") });
+
+    // Interactive Action 2: Open Retest Modal and record a verification pass
+    const retestBtn = await desktopPage.$("button:has-text('Retest')");
+    if (retestBtn) {
+      console.log("-> Interacting: Clicking 'Retest' to open Retest Modal...");
+      await retestBtn.click();
+      await desktopPage.waitForTimeout(500);
+      await desktopPage.screenshot({ path: path.join(SCREENSHOT_DIR, "05b_retest_modal_open.png") });
+
+      const passChoice = await desktopPage.$("button:has-text('PASS')");
+      if (passChoice) await passChoice.click();
+
+      const commentsInput = await desktopPage.$("textarea");
+      if (commentsInput) {
+        await commentsInput.fill("Automated E2E retest run verified: fix confirmed.");
+      }
+
+      const submitRetest = await desktopPage.$("button:has-text('Record Verification')");
+      if (submitRetest) {
+        console.log("-> Interacting: Submitting Retest Verification...");
+        await submitRetest.click();
+        await desktopPage.waitForTimeout(1000);
+      }
+    }
 
     console.log("Testing 6: Release Deltas Regression Comparison...");
     await desktopPage.goto(`${BASE_URL}/projects/proj_hackathon_demo/deltas`, { waitUntil: "networkidle" });

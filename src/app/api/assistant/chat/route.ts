@@ -22,7 +22,8 @@ export async function POST(req: Request) {
     }
 
     // Tenant isolation check
-    if (userId && project.userId !== "user_demo_1" && project.userId !== userId) {
+    const effectiveUserId = userId || "user_demo_1";
+    if (project.userId !== "user_demo_1" && project.userId !== effectiveUserId) {
       return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
     }
 
