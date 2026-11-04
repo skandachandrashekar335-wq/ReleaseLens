@@ -10,7 +10,9 @@ export async function GET(req: Request) {
     }
 
     const findings = await db.getFindingsForProject(projectId);
-    return NextResponse.json({ findings });
+    return NextResponse.json(findings, {
+      headers: { "X-Total-Count": String(findings.length) },
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

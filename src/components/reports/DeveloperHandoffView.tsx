@@ -93,7 +93,8 @@ ${b.evidence ? `- **Technical Evidence**:\n\`\`\`json\n${JSON.stringify(b.eviden
       if (!res.ok) throw new Error("Failed to create shareable link");
       const data = await res.json();
       const origin = typeof window !== "undefined" ? window.location.origin : "";
-      setShareUrl(`${origin}/reports/${data.token}`);
+      const shareToken = data.token || data.shareToken;
+      setShareUrl(`${origin}/reports/${shareToken}`);
     } catch (err) {
       console.error("Share error:", err);
     } finally {
@@ -117,7 +118,7 @@ ${b.evidence ? `- **Technical Evidence**:\n\`\`\`json\n${JSON.stringify(b.eviden
           </h2>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleCopyMarkdown}>
             {copied ? (
               <>
@@ -130,6 +131,19 @@ ${b.evidence ? `- **Technical Evidence**:\n\`\`\`json\n${JSON.stringify(b.eviden
                 Copy for GitHub / Linear
               </>
             )}
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const payload = JSON.stringify({ project, rqi, bugs, checks }, null, 2);
+              navigator.clipboard.writeText(payload);
+              alert("Defect telemetry JSON copied to clipboard!");
+            }}
+          >
+            <FileText className="h-3.5 w-3.5 mr-1 text-cyan-400" />
+            Copy JSON
           </Button>
 
           <Button variant="primary" size="sm" isLoading={isSharing} onClick={handleGenerateShareLink}>

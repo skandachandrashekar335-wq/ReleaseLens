@@ -4,6 +4,30 @@ All notable changes to the ReleaseLens project are documented in this file in ad
 
 ---
 
+## [0.2.0] - 2026-11-04 — Reality Audit, Functional Completion & Production Hardening
+
+### Added
+- **Native Persistent SQLite Storage Engine**:
+  - `src/lib/store/db-adapter.ts`: Embedded persistent database using Node 24 `node:sqlite` (`DatabaseSync`), writing to `./data/releaselens.db`.
+  - Enforces relational foreign keys, schema migrations, indexing, and proves complete state persistence across server/worker restarts.
+  - Authored Supabase PostgreSQL production migration `supabase/migrations/20261104000000_init_schema.sql` with full Row Level Security (RLS) policies.
+- **Autonomous Headless Playwright Browser Worker**:
+  - `src/lib/engine/browser-worker.ts`: Playwright headless Chromium runner capturing DOM routes, safe non-destructive button interactions, uncaught runtime exceptions, 4xx/5xx network failures, and viewport screenshot Base64 encoding.
+  - Integrated directly into the master `audit-runner.ts` pipeline.
+- **Defense-in-Depth SSRF Guard**:
+  - `src/lib/engine/ssrf-guard.ts`: Strict IP/CIDR validator blocking RFC 1918 private IPv4/IPv6, loopback, link-local, and AWS/GCP cloud metadata endpoints (`169.254.169.254`, `metadata.google.internal`).
+- **Session & Auth Subsystem**:
+  - `src/lib/auth/session.ts`, `/api/auth/session`, `/api/auth/google`: Mock-ready and OAuth-compatible authentication layer supplying user profiles and active session state.
+- **Comprehensive QA Test Suites**:
+  - Expanded test coverage from 10 to 32 tests across 10 test files (`db-persistence`, `ssrf-guard`, `browser-worker`, `ai-assistant`, `failure-modes`, `api-workflows`, `rqi-calculator`, `security-headers`, `findings-generator`, `delta-analyzer`).
+
+### Fixed
+- Fixed in-memory state loss by transitioning all API routes and UI views to `PersistentDataStore`.
+- Aligned API payload shapes with UI view models across all 12 project, findings, bug, and report routes.
+- Hardened AI Assistant with credential stripping, token redaction, and deterministic fallback summaries.
+
+---
+
 ## [0.1.0] - 2026-11-04 — ReleaseLens Complete Product Build & Ship
 
 ### Added

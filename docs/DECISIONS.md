@@ -1,7 +1,7 @@
 # Architecture Decision Records (ADRs) — ReleaseLens
 
 > **Document Status**: `SYNCHRONIZED`  
-> **Last Synchronized**: 2026-11-03  
+> **Last Synchronized**: 2026-11-04  
 
 ---
 
@@ -20,10 +20,10 @@
 | **ADR-009** | Safe Authentication Verification via OAuth Contract & Route Probing | 2026-11-03 | `ACCEPTED` |
 | **ADR-010** | Tiered Evidence Retention Strategy for 500MB Free Database Cap | 2026-11-03 | `ACCEPTED` |
 | **ADR-011** | Hybrid Headless Runner: GitHub Actions Dispatch | 2026-11-03 | `REJECTED` |
-| **ADR-012** | Defense-in-Depth SSRF & Anti-Rebinding Architecture | 2026-11-03 | `SUPERSEDED by ADR-019` |
+| **ADR-012** | Defense-in-Depth SSRF & Anti-Rebinding Architecture | 2026-11-03 | `SUPERSEDED by ADR-019 & ADR-025` |
 | **ADR-013** | Dual-Metric RQI Model: Multiplicative Coverage Formula | 2026-11-03 | `SUPERSEDED by ADR-020 & ADR-023` |
 | **ADR-014** | Decoupled Worker Strategy: Native Serverless Crawler + Cloud Run Headless Worker | 2026-11-03 | `SUPERSEDED by ADR-018` |
-| **ADR-015** | Browser Network Security via Playwright Universal Route Interception | 2026-11-03 | `SUPERSEDED by ADR-019` |
+| **ADR-015** | Browser Network Security via Playwright Universal Route Interception | 2026-11-03 | `SUPERSEDED by ADR-019 & ADR-025` |
 | **ADR-016** | Tripartite RQI Governance: Hard Release Gates + Tested Quality + Coverage % | 2026-11-03 | `SUPERSEDED by ADR-020 & ADR-023` |
 | **ADR-017** | Deterministic PII / Secret Scrubbing & Delimited AI Prompt Isolation | 2026-11-03 | `ACCEPTED` |
 | **ADR-018** | Decoupling Crawler from Vercel to Comply with Vercel Hobby Terms | 2026-11-03 | `ACCEPTED` |
@@ -32,6 +32,8 @@
 | **ADR-021** | Product Direction Reset: Web Application Testing, Bug Discovery & Evidence Platform | 2026-11-03 | `SUPERSEDED by ADR-022` |
 | **ADR-022** | Unified "Automate First, Human Review Second" Pipeline & Findings Triage Queue | 2026-11-03 | `ACCEPTED` |
 | **ADR-023** | Separation of Automated Findings from Confirmed Defects in RQI Gating | 2026-11-03 | `ACCEPTED` |
+| **ADR-024** | Native Persistent SQLite Database Storage Engine & Supabase Migration Layer | 2026-11-04 | `ACCEPTED` |
+| **ADR-025** | Embedded Headless Playwright Browser Worker with Strict DNS/IP SSRF Guard | 2026-11-04 | `ACCEPTED` |
 
 ---
 
@@ -65,3 +67,31 @@ Decouple RQI into:
 4. **Dual Reporting**:
    - Report A: Technical Audit Report (Automated metrics, executed checks, raw evidence).
    - Report B: Human-Reviewed Defect Report (Confirmed bugs, developer handoff, retest status).
+
+---
+
+## ADR-024: Native Persistent SQLite Database Storage Engine & Supabase Migration Layer
+
+### Context
+Initial prototypes relied on transient in-memory `Map` data structures that were wiped on process restart or serverless container disposal. To ensure ₹0 infrastructure footprint while guaranteeing data integrity across server reboots, a zero-daemon embedded persistence engine is required.
+
+### Decision
+1. Implement `PersistentDataStore` via Node 24 native `node:sqlite` (`DatabaseSync`), writing to `./data/releaselens.db` with WAL mode and foreign key enforcement.
+2. Structure schema tables (`users`, `sessions`, `projects`, `audits`, `checks`, `findings`, `bugs`, `retest_history`, `share_tokens`) with foreign keys, cascading deletes, and indexes.
+3. Author production PostgreSQL DDL migration `supabase/migrations/20261104000000_init_schema.sql` with Row Level Security (RLS) policies for instant zero-spend cloud persistence on Supabase.
+
+---
+
+## ADR-025: Embedded Headless Playwright Browser Worker with Strict DNS/IP SSRF Guard
+
+### Context
+Automated auditing must execute dynamic JavaScript applications, monitor console errors, track failing AJAX requests, inspect interactive controls, and capture real viewport screenshots without exposing cloud infrastructure to Server-Side Request Forgery (SSRF) or private subnet probing.
+
+### Decision
+1. **Pre-flight SSRF Guard**:
+   - Resolve hostname via DNS and validate IP against private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `127.0.0.0/8`, `169.254.0.0/16`, `::1`, `fc00::/7`, `fe80::/10`).
+   - Block cloud provider metadata IPs (`169.254.169.254`, `metadata.google.internal`).
+2. **Playwright Execution**:
+   - Launch headless Chromium with strict timeouts (15s navigation, 5s settle), single-tab isolation, and resource aborting for non-essential media.
+   - Intercept console logs, uncaught exceptions, and 4xx/5xx network response codes.
+   - Capture clean viewport screenshots encoded as Base64 data URIs for immediate visual evidence rendering without external S3/blob dependencies.

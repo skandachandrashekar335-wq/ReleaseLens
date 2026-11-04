@@ -68,7 +68,7 @@ export default function LandingPage() {
     } catch (err) {
       console.error(err);
       // Fallback to demo
-      router.push("/projects/proj_demo_preview");
+      router.push("/projects/proj_hackathon_demo");
     } finally {
       setIsAuditing(false);
     }
@@ -201,7 +201,7 @@ export default function LandingPage() {
             <h2 className="text-2xl font-bold text-foreground">Live Telemetry &amp; RQI Engine</h2>
           </div>
           <Link
-            href="/projects/proj_demo_preview"
+            href="/projects/proj_hackathon_demo"
             className="inline-flex items-center gap-1.5 text-xs font-mono text-emerald-400 hover:text-emerald-300 underline underline-offset-4"
           >
             Explore Full Demo Project <ChevronRight className="h-3.5 w-3.5" />

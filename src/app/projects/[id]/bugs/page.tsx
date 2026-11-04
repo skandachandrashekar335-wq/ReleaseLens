@@ -41,8 +41,14 @@ export default function BugsAndRetestPage({ params }: { params: Promise<{ id: st
         fetch(`/api/bugs?projectId=${projectId}`),
       ]);
 
-      if (pRes.ok) setProject(await pRes.json());
-      if (bRes.ok) setBugs(await bRes.json());
+      if (pRes.ok) {
+        const pData = await pRes.json();
+        setProject(pData.project || pData);
+      }
+      if (bRes.ok) {
+        const bData = await bRes.json();
+        setBugs(Array.isArray(bData) ? bData : (bData.bugs || []));
+      }
     } catch (err) {
       console.error("Failed to fetch bugs:", err);
     } finally {

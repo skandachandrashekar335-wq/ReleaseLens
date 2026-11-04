@@ -36,8 +36,14 @@ export default function FindingsInboxPage({ params }: { params: Promise<{ id: st
         fetch(`/api/findings?projectId=${projectId}`),
       ]);
 
-      if (pRes.ok) setProject(await pRes.json());
-      if (fRes.ok) setFindings(await fRes.json());
+      if (pRes.ok) {
+        const pData = await pRes.json();
+        setProject(pData.project || pData);
+      }
+      if (fRes.ok) {
+        const fData = await fRes.json();
+        setFindings(Array.isArray(fData) ? fData : (fData.findings || []));
+      }
     } catch (err) {
       console.error("Failed to fetch findings:", err);
     } finally {
@@ -59,6 +65,7 @@ export default function FindingsInboxPage({ params }: { params: Promise<{ id: st
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          projectId,
           status: action,
           triagedBy: "QA Lead",
           triageNotes: `Triaged via Quick Triage as ${action}`,
@@ -85,6 +92,7 @@ export default function FindingsInboxPage({ params }: { params: Promise<{ id: st
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        projectId,
         status: action,
         suggestedSeverity: severity,
         triageNotes: notes,

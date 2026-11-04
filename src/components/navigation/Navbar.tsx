@@ -1,20 +1,46 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Shield, Sparkles, Activity, Layers, Bug, CheckSquare } from "lucide-react";
+import {
+  Shield,
+  Sparkles,
+  Activity,
+  Layers,
+  Bug,
+  CheckSquare,
+  User,
+  LogOut,
+  LogIn,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {
   const pathname = usePathname();
+  const [user, setUser] = useState<{ id: string; email: string; name: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/session")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.user) setUser(data.user);
+      })
+      .catch(() => {});
+  }, []);
 
   const navLinks = [
     { href: "/dashboard", label: "Dashboard", icon: Layers },
-    { href: "/projects/proj_demo_preview", label: "Demo Audit", icon: Activity },
-    { href: "/projects/proj_demo_preview/findings", label: "Findings Inbox", icon: CheckSquare },
-    { href: "/projects/proj_demo_preview/bugs", label: "Bugs & Retest", icon: Bug },
+    { href: "/projects/proj_hackathon_demo", label: "Demo Audit", icon: Activity },
+    { href: "/projects/proj_hackathon_demo/findings", label: "Findings Inbox", icon: CheckSquare },
+    { href: "/projects/proj_hackathon_demo/bugs", label: "Bugs & Retest", icon: Bug },
   ];
+
+  const handleSignOut = async () => {
+    await fetch("/api/auth/session", { method: "DELETE" });
+    setUser(null);
+    window.location.reload();
+  };
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/80 bg-background/80 backdrop-blur-md">
@@ -33,7 +59,7 @@ export function Navbar() {
                 </span>
               </span>
               <span className="text-[10px] text-muted-foreground tracking-wide font-mono">
-                QUALITY & RELEASE INTELLIGENCE
+                QUALITY &amp; RELEASE INTELLIGENCE
               </span>
             </div>
           </Link>
@@ -66,8 +92,32 @@ export function Navbar() {
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-full bg-surface-raised border border-border text-[11px] font-mono text-muted-foreground">
             <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            Cloud Engine Ready
+            Engine Online
           </div>
+
+          {user ? (
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface border border-border text-xs font-mono">
+                <User className="h-3.5 w-3.5 text-emerald-400" />
+                <span className="hidden md:inline truncate max-w-[120px] text-foreground">{user.name}</span>
+              </div>
+              <button
+                onClick={handleSignOut}
+                className="p-1.5 rounded-full text-muted-foreground hover:text-red-400 hover:bg-surface transition-colors"
+                title="Sign out"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <a
+              href="/api/auth/google"
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-3.5 py-1.5 rounded-full bg-surface-raised border border-border text-foreground hover:bg-surface transition-all shadow-sm font-mono"
+            >
+              <LogIn className="h-3.5 w-3.5 text-emerald-400" />
+              Google Sign-In
+            </a>
+          )}
 
           <Link
             href="/dashboard"

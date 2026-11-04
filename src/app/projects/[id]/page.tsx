@@ -47,21 +47,21 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
       const pRes = await fetch(`/api/projects/${projectId}`);
       if (pRes.ok) {
         const pData = await pRes.json();
-        setProject(pData);
+        setProject(pData.project || pData);
       }
 
       // Fetch findings
       const fRes = await fetch(`/api/findings?projectId=${projectId}`);
       if (fRes.ok) {
         const fData = await fRes.json();
-        setFindings(fData);
+        setFindings(Array.isArray(fData) ? fData : (fData.findings || []));
       }
 
       // Fetch bugs
       const bRes = await fetch(`/api/bugs?projectId=${projectId}`);
       if (bRes.ok) {
         const bData = await bRes.json();
-        setBugs(bData);
+        setBugs(Array.isArray(bData) ? bData : (bData.bugs || []));
       }
     } catch (err) {
       console.error("Error loading project overview:", err);
@@ -85,9 +85,9 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
       if (!res.ok) throw new Error("Audit execution failed");
       const auditResult = await res.json();
 
-      setChecks(auditResult.checks || []);
-      setFindings(auditResult.potentialFindings || []);
-      setRqi(auditResult.rqi || null);
+      setChecks(auditResult.checks || auditResult.auditRun?.checks || []);
+      setFindings(auditResult.potentialFindings || auditResult.auditRun?.findings || []);
+      setRqi(auditResult.rqi || auditResult.auditRun?.rqiScore || null);
       setDelta(auditResult.delta || null);
 
       // Refresh bugs list too in case functional gate changed

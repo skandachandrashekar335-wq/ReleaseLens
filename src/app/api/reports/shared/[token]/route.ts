@@ -22,13 +22,22 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
 
     const findings = await db.getFindingsForProject(project.id);
     const bugs = await db.getBugsForProject(project.id);
+    const rqi = tokenData.data?.rqi || audit?.rqiScore;
 
-    return NextResponse.json({
+    const payload = {
       project,
       audit: audit || null,
+      rqi: rqi || null,
       findings,
       bugs,
-    });
+      data: {
+        project,
+        rqi: rqi || null,
+        bugs,
+      },
+    };
+
+    return NextResponse.json(payload);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

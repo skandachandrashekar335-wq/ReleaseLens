@@ -48,11 +48,12 @@ pnpm dev
 | :--- | :--- | :--- | :--- |
 | **Framework** | Next.js 15.5 (App Router) + React 19 | Serverless frontend, API routes & SSR | Vercel Free Tier ($0) |
 | **Styling** | Tailwind CSS 3.4 + Lucide Icons | Dark Luxury aesthetic (`v0-optimus-delta` inspired) | Open Source |
-| **Testing** | Vitest 3.2.7 | Unit and integration test suite | Local & CI ($0) |
+| **Testing** | Vitest 3.2.7 (32 tests in 10 suites) | Unit, integration, SSRF & browser test suite | Local & CI ($0) |
+| **Browser Worker** | Playwright Headless Chromium + SSRF Guard | Dynamic DOM exploration, console error & 4xx/5xx tracking | Free Tier ($0) |
 | **Crawler & TLS** | Node.js TLS Socket + Cheerio | Cloud-native bounded socket & route crawler | Native Serverless ($0) |
 | **Performance** | Google PageSpeed Insights REST API | Core Web Vitals & Lighthouse lab measurements | Free Tier (25k req/day, $0) |
 | **AI Copilot** | Google Gemini 1.5 Flash via Generative AI SDK | Read-only grounded evidence reasoning | Google AI Studio Free Tier ($0) |
-| **Persistence** | Supabase SSR + Resilient In-Memory Fallback | Multi-tenant audit and bug persistence | Supabase Free Tier ($0) |
+| **Persistence** | Embedded SQLite (`node:sqlite`) + Supabase RLS Migration | Zero-daemon persistent storage surviving reboots | Free Tier ($0) |
 
 ---
 

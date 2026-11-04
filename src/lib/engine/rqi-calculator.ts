@@ -116,6 +116,7 @@ export function calculateRqiScore(input: RqiCalculationInput): RqiScore {
     auditRunId,
     releaseVerdict,
     qualityScore,
+    overallScore: releaseVerdict === "RELEASE_BLOCKED" ? null : qualityScore,
     coveragePercent,
     gateSecurity,
     gateFunctional,

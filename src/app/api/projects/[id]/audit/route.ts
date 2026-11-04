@@ -2,13 +2,21 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/store/db-adapter";
 import { executeAutomatedAudit } from "@/lib/engine/audit-runner";
 import { analyzeReleaseDelta } from "@/lib/engine/delta-analyzer";
+import { getAuthSession } from "@/lib/auth/session";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const auth = await getAuthSession();
+    const userId = auth.user?.id;
+
     const project = await db.getProject(id);
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    if (userId && project.userId !== "user_demo_1" && project.userId !== userId) {
+      return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
     }
 
     // Get existing confirmed bugs to feed into RQI calculation
@@ -16,7 +24,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const previousAudits = await db.getAuditsForProject(id);
     const previousAudit = previousAudits[0];
 
-    // Execute real automated audit
+    // Execute real automated audit (with Playwright browser worker and SSRF guard)
     const auditRun = await executeAutomatedAudit({
       projectId: project.id,
       targetUrl: project.targetUrl,
@@ -31,10 +39,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // Calculate release delta
     const delta = analyzeReleaseDelta(auditRun, previousAudit);
 
-    return NextResponse.json({
-      auditRun,
-      delta,
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        auditRun,
+        delta,
+        checks: auditRun.checks,
+        potentialFindings: auditRun.findings,
+        rqi: auditRun.rqiScore,
+        browserResult: auditRun.browserResult,
+      },
+      { status: 201 }
+    );
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -44,7 +59,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const { id } = await params;
     const audits = await db.getAuditsForProject(id);
-    return NextResponse.json({ audits });
+    return NextResponse.json(audits);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
