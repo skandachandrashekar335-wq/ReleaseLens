@@ -133,7 +133,8 @@ export async function queryEvidenceAssistant(
   if (apiKey) {
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const modelName = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
+      const model = genAI.getGenerativeModel({ model: modelName });
 
       const systemPrompt = `You are ReleaseLens AI, an objective, evidence-grounded software quality auditor and technical assistant.
 Your job is to interpret actual web application audit evidence, findings, and bug reports for testers and developers.
