@@ -24,12 +24,29 @@ interface GlBackgroundProps {
 
 export function GlBackground({ hovering: propHovering }: GlBackgroundProps) {
   const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [auditHover, setAuditHover] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
-    setMounted(true);
+    // Check mobile viewport
+    if (typeof window !== "undefined") {
+      setIsMobile(window.innerWidth < 768);
+    }
+
+    // Defer WebGL particle canvas mounting until after initial paint & main-thread idle
+    let idleId: number | null = null;
+    let timerId: NodeJS.Timeout | null = null;
+
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      idleId = (window as any).requestIdleCallback(
+        () => setMounted(true),
+        { timeout: 1000 }
+      );
+    } else {
+      timerId = setTimeout(() => setMounted(true), 200);
+    }
 
     // Reduced motion accessibility guard
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -37,6 +54,11 @@ export function GlBackground({ hovering: propHovering }: GlBackgroundProps) {
 
     const onMotionChange = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
     mediaQuery.addEventListener("change", onMotionChange);
+
+    const onResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener("resize", onResize, { passive: true });
 
     // Event listener for button hover introspection
     const onAuditHover = (e: Event) => {
@@ -47,7 +69,14 @@ export function GlBackground({ hovering: propHovering }: GlBackgroundProps) {
     window.addEventListener("releaselens:audit-hover", onAuditHover);
 
     return () => {
+      if (idleId !== null && typeof window !== "undefined" && "cancelIdleCallback" in window) {
+        (window as any).cancelIdleCallback(idleId);
+      }
+      if (timerId !== null) {
+        clearTimeout(timerId);
+      }
       mediaQuery.removeEventListener("change", onMotionChange);
+      window.removeEventListener("resize", onResize);
       window.removeEventListener("releaselens:audit-hover", onAuditHover);
     };
   }, []);
@@ -74,12 +103,16 @@ export function GlBackground({ hovering: propHovering }: GlBackgroundProps) {
 
   return (
     <>
-      <DynamicGL
-        hovering={isHovered}
-        opacity={targetOpacity}
-        speed={targetSpeed}
-        noiseIntensity={targetNoise}
-      />
+      <div className="fixed inset-0 pointer-events-none z-0 transition-opacity duration-700 ease-out opacity-100">
+        <DynamicGL
+          hovering={isHovered}
+          opacity={targetOpacity}
+          speed={targetSpeed}
+          noiseIntensity={targetNoise}
+          size={isMobile ? 256 : 512}
+          pointSize={isMobile ? 12.0 : 10.0}
+        />
+      </div>
       {/* Route-Aware Ambient Contrast Shield for Inner Dashboards */}
       {!isHome && (
         <div

@@ -1,0 +1,3 @@
+# Gitleaks ignore file
+# False positive in historical commit for placeholder template in .env.example
+41578a4815592dfcf134095d1fa870671a858611:.env.example:private-key:35
