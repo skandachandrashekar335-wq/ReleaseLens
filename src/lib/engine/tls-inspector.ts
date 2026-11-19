@@ -1,6 +1,7 @@
 import * as tls from "tls";
 import { URL } from "url";
 import { AutomatedCheck } from "../types";
+import { validateTargetUrl } from "./ssrf-guard";
 
 export interface TlsInspectionResult {
   check: AutomatedCheck;
@@ -14,6 +15,28 @@ export async function inspectTlsCertificate(targetUrl: string, auditRunId: strin
   const parsed = new URL(targetUrl);
   const host = parsed.hostname;
   const port = parsed.port ? parseInt(parsed.port, 10) : 443;
+
+  const ssrfCheck = await validateTargetUrl(targetUrl);
+  if (!ssrfCheck.isAllowed) {
+    return {
+      check: {
+        id: `check_tls_${Date.now()}`,
+        auditRunId,
+        category: "TLS",
+        checkName: "TLS & Certificate Validity",
+        status: "FAIL",
+        score: 0,
+        weight: 0.15,
+        rawEvidence: { error: `TLS inspection blocked by SSRF policy: ${ssrfCheck.reason}` },
+        errorMessage: `Target URL rejected by SSRF perimeter: ${ssrfCheck.reason}`,
+        timestamp: new Date().toISOString(),
+      },
+      daysRemaining: 0,
+      validTo: "",
+      issuer: "Blocked",
+      subject: host,
+    };
+  }
 
   return new Promise((resolve) => {
     // If not HTTPS

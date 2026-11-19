@@ -157,13 +157,19 @@ export interface RqiScore {
   reasons?: string[];
 }
 
+export type AuditExecutionTier = "TIER_1_HTTP" | "TIER_2_PERF" | "TIER_3_BROWSER";
+export type AuditStatus = "QUEUED" | "RUNNING" | "PARTIAL" | "COMPLETED" | "FAILED" | "CANCELLED";
+
 export interface AuditRun {
   id: string;
   projectId: string;
   targetUrl: string;
   environment: EnvironmentType;
   auditTier: "TIER_1_PUBLIC" | "TIER_2_VERIFIED";
-  status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
+  status: AuditStatus;
+  executionTier?: AuditExecutionTier;
+  tiersExecuted?: AuditExecutionTier[];
+  executionLimitations?: string[];
   startedAt: string;
   completedAt?: string;
   checks: AutomatedCheck[];

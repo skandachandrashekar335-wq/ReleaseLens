@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/store/db-adapter";
 import { getAuthSession, SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { verifyFirebaseIdToken, isFirebaseAdminConfigured } from "@/lib/firebase/admin";
+import { checkRateLimit, createRateLimitResponse, getClientIp } from "@/lib/security/rate-limit";
 
 export async function GET() {
   try {
@@ -18,6 +19,16 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const clientIp = getClientIp(req);
+    const rateCheck = checkRateLimit(clientIp, {
+      limit: 30,
+      windowSeconds: 60,
+      prefix: "auth_session",
+    });
+    if (!rateCheck.success) {
+      return createRateLimitResponse(rateCheck);
+    }
+
     const body = await req.json().catch(() => ({}));
     const { idToken } = body;
 

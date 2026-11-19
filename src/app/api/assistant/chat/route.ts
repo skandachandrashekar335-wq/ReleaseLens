@@ -2,11 +2,23 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/store/db-adapter";
 import { queryEvidenceAssistant } from "@/lib/ai/gemini-assistant";
 import { getAuthSession } from "@/lib/auth/session";
+import { checkRateLimit, createRateLimitResponse, getClientIp } from "@/lib/security/rate-limit";
 
 export async function POST(req: Request) {
   try {
     const auth = await getAuthSession();
     const userId = auth.user?.id;
+    const clientIdentifier = userId || getClientIp(req);
+
+    // Enforce rate limiting: 20 queries per minute per client
+    const rateCheck = checkRateLimit(clientIdentifier, {
+      limit: 20,
+      windowSeconds: 60,
+      prefix: "copilot",
+    });
+    if (!rateCheck.success) {
+      return createRateLimitResponse(rateCheck);
+    }
 
     const body = await req.json();
     const { projectId } = body;

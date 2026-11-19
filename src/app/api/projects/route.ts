@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/store/db-adapter";
 import { getAuthSession, SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { validateTargetUrl } from "@/lib/engine/ssrf-guard";
+import { checkRateLimit, createRateLimitResponse, getClientIp } from "@/lib/security/rate-limit";
 
 export async function GET() {
   try {
@@ -21,6 +22,16 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const clientIp = getClientIp(req);
+    const rateCheck = checkRateLimit(clientIp, {
+      limit: 20,
+      windowSeconds: 60,
+      prefix: "project_create",
+    });
+    if (!rateCheck.success) {
+      return createRateLimitResponse(rateCheck);
+    }
+
     const auth = await getAuthSession();
     let user = auth.user;
     let newSessionToken: string | null = null;

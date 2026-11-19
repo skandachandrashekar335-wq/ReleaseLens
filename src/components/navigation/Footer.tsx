@@ -1,95 +1,100 @@
 import React from "react";
 import Link from "next/link";
-import { Shield, ExternalLink, Terminal, GitBranch, Lock } from "lucide-react";
+import { ExternalLink, Terminal, GitBranch, Lock } from "lucide-react";
 
 export function Footer() {
   return (
-    <footer className="w-full border-t border-border/80 bg-background/50 py-12 mt-20">
+    <footer className="w-full border-t border-border/80 bg-black/60 backdrop-blur-[2px] py-16 mt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
           {/* Col 1: Identity */}
-          <div className="space-y-3 md:col-span-1">
-            <div className="flex items-center gap-2">
-              <div className="h-6 w-6 rounded bg-surface-raised border border-border flex items-center justify-center">
-                <Shield className="h-3.5 w-3.5 text-emerald-400" />
+          <div className="space-y-4 md:col-span-1">
+            <div className="flex items-center gap-3">
+              <div className="size-7 rounded-none border border-primary/50 bg-black flex items-center justify-center text-primary [box-shadow:inset_0_0_10px_rgba(235,184,0,0.3)]">
+                <span className="font-mono font-bold text-xs text-primary">RL</span>
               </div>
-              <span className="font-semibold text-sm tracking-tight text-foreground">ReleaseLens</span>
+              <span className="font-mono font-bold text-sm tracking-wider text-foreground uppercase">
+                ReleaseLens
+              </span>
             </div>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Cloud-hosted Web Application Testing, Bug Discovery, Evidence Collection, and Release-Readiness Platform.
+            <p className="text-xs font-mono text-foreground/60 leading-relaxed">
+              Cloud-hosted autonomous web application testing, bug discovery, evidence collection, and release-readiness gating.
             </p>
-            <div className="flex items-center gap-2 text-[11px] font-mono text-muted-foreground">
-              <Lock className="h-3 w-3 text-emerald-400" />
+            <div className="flex items-center gap-2 text-[11px] font-mono text-foreground/50">
+              <Lock className="size-3 text-primary" />
               <span>₹0 Budget • Zero Machine-Local Dependencies</span>
             </div>
           </div>
 
-          {/* Col 2: Architecture & Engine */}
-          <div className="space-y-2.5">
-            <h4 className="text-xs font-mono uppercase tracking-wider text-foreground font-semibold">Engine Pipeline</h4>
-            <ul className="text-xs space-y-1.5 text-muted-foreground">
-              <li className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Live TLS & Expiry Inspector
+          {/* Col 2: Engine Tiers */}
+          <div className="space-y-3 font-mono">
+            <h4 className="text-xs uppercase tracking-wider text-foreground font-semibold">Engine Execution Tiers</h4>
+            <ul className="text-xs space-y-2 text-foreground/60">
+              <li className="flex items-center gap-2">
+                <span className="size-1.5 rounded-full bg-primary" />
+                <span>Tier 1: TLS, Headers & Bounded Crawl</span>
               </li>
-              <li className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Strict Security Headers & CSP Probe
+              <li className="flex items-center gap-2">
+                <span className="size-1.5 rounded-full bg-primary" />
+                <span>Tier 2: PageSpeed & CWV Lab Telemetry</span>
               </li>
-              <li className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Bounded Link & Broken Route Crawler
+              <li className="flex items-center gap-2">
+                <span className="size-1.5 rounded-full bg-primary" />
+                <span>Tier 3: Browser Interaction & DOM Replay</span>
               </li>
-              <li className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Google PageSpeed & CWV Lab Client
-              </li>
-              <li className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Tripartite RQI Scoring Governance
+              <li className="flex items-center gap-2">
+                <span className="size-1.5 rounded-full bg-primary" />
+                <span>RQI Governance & Defect Hard Gates</span>
               </li>
             </ul>
           </div>
 
           {/* Col 3: Workflow */}
-          <div className="space-y-2.5">
-            <h4 className="text-xs font-mono uppercase tracking-wider text-foreground font-semibold">Definitive Workflow</h4>
-            <div className="font-mono text-[11px] space-y-1 text-muted-foreground bg-surface-raised/40 p-2.5 rounded-lg border border-border">
-              <div>1. Enter Target URL</div>
-              <div>2. Run Automated Checks</div>
-              <div>3. Surface Potential Findings</div>
-              <div>4. Human Tester Triage</div>
-              <div>5. Confirmed Bugs Handled</div>
-              <div>6. Retest & Release Verdict</div>
+          <div className="space-y-3 font-mono">
+            <h4 className="text-xs uppercase tracking-wider text-foreground font-semibold">Deterministic Workflow</h4>
+            <div className="text-[11px] space-y-1.5 text-foreground/60 bg-[#0d0d0d] p-3 border border-border">
+              <div>01 // Enter Application URL</div>
+              <div>02 // Bounded Autonomous Exploration</div>
+              <div>03 // Evidence & Finding Ingestion</div>
+              <div>04 // Human Tester Triage Workbench</div>
+              <div>05 // Confirmed Bug Tracking & Retest</div>
+              <div>06 // Release-Readiness Gate Index</div>
             </div>
           </div>
 
-          {/* Col 4: Governance & Spec */}
-          <div className="space-y-2.5">
-            <h4 className="text-xs font-mono uppercase tracking-wider text-foreground font-semibold">Documentation & Repo</h4>
-            <ul className="text-xs space-y-2 text-muted-foreground">
+          {/* Col 4: Governance */}
+          <div className="space-y-3 font-mono">
+            <h4 className="text-xs uppercase tracking-wider text-foreground font-semibold">Governance & ADR</h4>
+            <ul className="text-xs space-y-2 text-foreground/60">
               <li>
                 <a
                   href="https://github.com/skandachandrashekar335-wq/ReleaseLens"
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                  className="inline-flex items-center gap-1 hover:text-primary transition-colors"
                 >
-                  <GitBranch className="h-3 w-3" /> GitHub Repository
-                  <ExternalLink className="h-2.5 w-2.5 ml-0.5 opacity-60" />
+                  <GitBranch className="size-3" /> GitHub Repository
+                  <ExternalLink className="size-2.5 ml-0.5 opacity-60" />
                 </a>
               </li>
-              <li>
-                <span className="inline-flex items-center gap-1 text-muted-foreground">
-                  <Terminal className="h-3 w-3 text-cyan-400" /> ADR-020 & ADR-023 Certified
-                </span>
+              <li className="flex items-center gap-1.5 text-foreground/70">
+                <Terminal className="size-3 text-primary" />
+                <span>ADR-020 &amp; ADR-023 Certified</span>
               </li>
-              <li className="text-[11px] font-mono text-muted-foreground/80">
-                Governance: Strict Status State Machine
+              <li className="text-[11px] text-foreground/40">
+                Strict Status State Machine Verified
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="pt-6 border-t border-border/60 flex flex-col sm:flex-row items-center justify-between text-[11px] font-mono text-muted-foreground gap-3">
+        <div className="pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between text-[11px] font-mono text-foreground/50 gap-4">
           <div>© {new Date().getFullYear()} ReleaseLens. All rights reserved. Zero local runtime requirements.</div>
-          <div className="flex items-center gap-4">
-            <span className="text-emerald-400">STATUS: OPERATIONAL</span>
+          <div className="flex items-center gap-6 uppercase tracking-wider">
+            <span className="text-primary flex items-center gap-1.5">
+              <span className="inline-block size-1.5 rounded-full bg-primary shadow-glow shadow-primary/60" />
+              STATUS: OPERATIONAL
+            </span>
             <span>RQI GOVERNANCE: ACTIVE</span>
           </div>
         </div>

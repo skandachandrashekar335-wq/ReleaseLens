@@ -36,6 +36,9 @@
 | **ADR-025** | Embedded Headless Playwright Browser Worker with Strict DNS/IP SSRF Guard | 2026-11-04 | `ACCEPTED` |
 | **ADR-026** | Server-Side IDOR Enforcement & Fail-Closed Production Providers | 2026-11-04 | `ACCEPTED` |
 | **ADR-027** | Elimination of Shared-Demo Tenant Access & Strict Zero-Trust Authorization | 2026-11-04 | `ACCEPTED` |
+| **ADR-028** | Firebase Authentication Integration with Server-Side Admin Verification | 2026-11-04 | `ACCEPTED` |
+| **ADR-029** | Three-Tier Audit Execution Demarcation & Explicit Lifecycle State Machine | 2026-11-09 | `ACCEPTED` |
+| **ADR-030** | Two-Pane Findings Triage Workbench with Deep-Linking & Guarded Keyboard Shortcuts | 2026-11-09 | `ACCEPTED` |
 
 ---
 
@@ -167,3 +170,110 @@ ReleaseLens requires a production-grade external Identity Provider (IdP) support
    - If Firebase Admin credentials (`FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`) are missing, server token verification fails closed with HTTP 503 (`FIREBASE_NOT_CONFIGURED`) rather than permitting unauthenticated bypass.
 6. **Isolated Test Hook**:
    - Provided `setCustomTokenVerifier()` for deterministic regression testing of token expiry, invalid token rejection, and cross-user tenant boundaries in Vitest without external network dependencies.
+
+---
+
+## ADR-029: Three-Tier Audit Execution Demarcation & Explicit Lifecycle State Machine
+
+### Context
+Describing Cheerio HTML parsing and external PageSpeed queries as an autonomous browser audit obscured actual capabilities. Furthermore, long-running browser sessions cannot be safely run within a 15-second serverless execution ceiling without timing out or presenting partial checks as complete.
+
+### Decision
+1. **Three Strict Execution Tiers**:
+   - **Tier 1 (Lightweight HTTP & TLS)**: Edge-safe Cheerio route crawler, TLS certificate validity and expiry calculations, security header validation, and redirect tracking (<1.5s latency).
+   - **Tier 2 (Synthetic Performance)**: Google PageSpeed Insights REST API client extracting lab Core Web Vitals (LCP, CLS, INP, FCP) within an automated 25k req/day free tier quota.
+   - **Tier 3 (Browser Interaction)**: Genuine headless Chromium execution for interactive event exploration, form safety analysis, console error capturing, and viewport screenshot evidence.
+2. **Explicit Demarcation & Graceful Degradation**:
+   - When a dedicated cloud container runner is absent, Tier 3 is recorded as `NOT_RUN` with explicit execution limitation reasons.
+   - The audit run is stamped with status `PARTIAL`. Missing browser checks are never marked as `PASS`.
+3. **Formal Audit Lifecycle States**:
+   - Audit runs strictly transition through: `QUEUED` $\to$ `RUNNING` $\to$ `COMPLETED` $\mid$ `PARTIAL` $\mid$ `FAILED` $\mid$ `CANCELLED`.
+   - Every individual check records: `PASS`, `FAIL`, `NOT_RUN`, or `INCONCLUSIVE`.
+
+---
+
+## ADR-030: Two-Pane Findings Triage Workbench with Deep-Linking & Guarded Keyboard Shortcuts
+
+### Context
+A standard modal popup or simple card grid creates friction when QA leads triage dozens of automated findings. Testers need rapid, keyboard-navigable triage workflows similar to modern dev tools like Linear and GitHub Issues.
+
+### Decision
+1. **Two-Pane Split Workbench**:
+   - Left pane (`420px` desktop): Scrollable findings list with severity badges, source check indicators, search filter, and active selection state.
+   - Right pane (`flex-1`): Dedicated telemetry inspector with formatted JSON payloads, reproduction procedures, and instant triage actions (`Reject`, `Duplicate`, `Confirm Bug`).
+2. **URL State Synchronization**:
+   - Deep-linkable via `?findingId=...&severity=...&status=...`. Selecting or triaging a finding updates the browser address bar shallowly without full page reloads.
+3. **Guarded Single-Key Keyboard Shortcuts**:
+   - `J` / `ArrowDown`: Next finding.
+   - `K` / `ArrowUp`: Previous finding.
+   - `C`: Quick Confirm as Bug.
+   - `R`: Quick Reject as False Positive.
+   - `D`: Quick Mark Duplicate.
+   - Input guard: Keystrokes are ignored when focused on `INPUT`, `TEXTAREA`, `SELECT`, or `[contenteditable]`.
+4. **On-Demand AI Copilot Enhancement**:
+   - Bound to an on-demand button calling `/api/assistant/chat` to formulate root cause hypotheses and deterministic reproduction steps without exhausting Gemini free tier quotas.
+
+---
+
+## ADR-031: Design System Overhaul — Pitch-Black & Chamfered Gold Telemetry Architecture
+
+### Context
+ReleaseLens's initial UI used a dark slate aesthetic with rounded corners. To establish world-class product design matching top developer and security platforms, the design system was overhauled based on a verified v0 reference template (`https://v0.app/skc5/chat/skal-ventures-template-RSAkR2j8yO0`).
+
+### Decision
+1. **Palette Architecture**:
+   - Background: Pure pitch-black `#000000` with secondary surfaces `#0a0a0a` and card surfaces `#0d0d0d`.
+   - Primary Accent: Precision amber gold `#EBB800` (`rgba(235, 184, 0, ...)`) with inset illumination `box-shadow: inset 0 0 54px 0px #EBB800` and glowing halos `shadow-glow shadow-primary/50`.
+   - Structural Dividers: High-precision dark charcoal borders `#262626`.
+2. **Polygonal Chamfer Cut-Corner Geometry**:
+   - Introduced `--poly-roundness` clip-path utilities for cut-corner geometry:
+     - Chamfered Badges: `--poly-roundness: 6px` with 4 diagonal corner tick marks and glowing status dots.
+     - Chamfered Action Buttons: `--poly-roundness: 16px` with inset gold illumination and diagonal corner border lines.
+     - Chamfered Metric Cards: `--poly-roundness: 10px-12px`.
+3. **Typography Contrast Choreography**:
+   - Serif display headlines (`Instrument Serif`) with light italic accents on key action words (e.g. `quality` intelligence).
+   - Monospace uppercase metadata, labels, status pills, and keyboard shortcuts (`JetBrains Mono`).
+   - Clean, highly legible sans body prose (`Instrument Sans`).
+4. **Behavioral Invariance & Evidence Continuity**:
+   - 100% of existing backend APIs, Firebase authentication flows, SQLite/Supabase adapters, RQI scoring algorithms, and 74 passing tests remain intact.
+
+---
+
+## ADR-032: Production Security Hardening, SSRF Redirect Defense, Token-Bucket Rate Limiting & Enterprise HTTP Security Headers
+
+### Context
+Following the comprehensive state audit (`docs/STATE_AUDIT.md`), four key perimeter security risks were flagged:
+1. Redirect SSRF blind spots where HTTP/link crawlers blindly followed 301/302 redirects to internal or cloud metadata addresses (`169.254.169.254`).
+2. SSRF URL userinfo credential bypass vectors (`user:pass@host`).
+3. Unauthenticated denial-of-service / resource exhaustion on mutation and LLM copilot endpoints.
+4. Missing production HTTP security headers (CSP, X-Frame-Options, Nosniff, Referrer-Policy, Permissions-Policy, COOP).
+
+### Decision
+1. **SSRF Perimeter Hardening (`src/lib/engine/ssrf-guard.ts`)**:
+   - Strictly reject any URL containing embedded userinfo credentials (`url.username || url.password`).
+   - Extended IP blocking to include IPv4 multicast (`224.0.0.0/4`), broadcast (`255.255.255.255`), reserved/future subnets (`240.0.0.0/4`), IPv6 link-local, and cloud IPv6 metadata (`fd00:ec2::254`).
+2. **Manual Redirect-Chain Validation (`src/lib/engine/link-crawler.ts`)**:
+   - Replaced blind `fetch(url)` in crawler routines with `safeFetchWithSsrfRedirectGuard(url, options, maxHops = 5)`.
+   - Crawlers enforce `redirect: "manual"` and validate every single hop's `Location` header against `validateTargetUrl` before fetching.
+3. **Sliding-Window Token-Bucket Rate Limiter (`src/lib/security/rate-limit.ts`)**:
+   - Implemented zero-dependency in-memory token bucket rate limiting with automatic stale bucket pruning.
+   - Applied rate limiting across all sensitive mutation and copilot routes:
+     - `POST /api/assistant/chat`: 20 requests/minute.
+     - `POST /api/projects/[id]/audit`: 10 requests/minute.
+     - `POST /api/projects`: 20 requests/minute.
+     - `POST /api/auth/session`: 30 requests/minute.
+     - `POST /api/bugs`: 30 requests/minute.
+     - `POST /api/reports/share`: 20 requests/minute.
+   - Standardized HTTP 429 response formatting with RFC-compliant `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` headers.
+4. **Production HTTP Security Headers (`next.config.ts`)**:
+   - `X-Content-Type-Options: nosniff`.
+   - `X-Frame-Options: DENY`.
+   - `Referrer-Policy: strict-origin-when-cross-origin`.
+   - `Permissions-Policy: camera=(), microphone=(), geolocation=(), browsing-topics=()`.
+   - `Cross-Origin-Opener-Policy: same-origin-allow-popups` (ensuring Firebase Auth popup compatibility).
+   - Strict `Content-Security-Policy` allowing WebGL/Three.js shaders, Next.js hydration, Google/Firebase authentication, and Supabase database endpoints.
+
+### Status
+`IMPLEMENTED` | `TESTED` | `EXPERIMENTALLY_VERIFIED`
+
+

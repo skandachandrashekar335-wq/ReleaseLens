@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import { Project, RqiScore, BugReport, AutomatedCheck } from "@/lib/types";
-import { Button } from "@/lib/../components/ui/Button";
-import { Copy, Check, Share2, FileText, ExternalLink, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Copy, Check, Share2, FileText, ShieldCheck, ShieldAlert } from "lucide-react";
 
 interface DeveloperHandoffViewProps {
   project: Project;
@@ -21,9 +21,7 @@ export function DeveloperHandoffView({ project, rqi, bugs, checks = [] }: Develo
   const overallScoreVal = rqi.overallScore ?? rqi.qualityScore ?? "BLOCKED";
   const coverageVal = rqi.coveragePercentage ?? rqi.coveragePercent ?? 100;
   const isSecurityPassed = rqi.gateSecurityPassed ?? (rqi.gateSecurity === "PASS");
-  const isFunctionalPassed = rqi.gateFunctionalPassed ?? (rqi.gateFunctional === "PASS");
 
-  // Generate markdown representation suitable for pasting into GitHub Issues or Linear
   const generateMarkdownReport = () => {
     return `# ReleaseLens Developer Handoff Report
 **Target Application**: ${project.name} (${project.targetUrl})
@@ -35,7 +33,7 @@ export function DeveloperHandoffView({ project, rqi, bugs, checks = [] }: Develo
 
 ## 1. Hard Gate Status
 - **Security & Transport Gate**: ${isSecurityPassed ? "✅ PASS" : "❌ FAIL"}
-- **Functional Integrity Gate**: ${isFunctionalPassed ? "✅ PASS" : "❌ FAIL"}
+- **Functional Integrity Gate**: ${bugs.filter((b) => b.severity === "CRITICAL" && b.status !== "VERIFIED").length === 0 ? "✅ PASS" : "❌ FAIL"}
 
 ---
 
@@ -103,31 +101,31 @@ ${b.evidence ? `- **Technical Evidence**:\n\`\`\`json\n${JSON.stringify(b.eviden
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-surface p-6 shadow-xl space-y-6">
+    <div className="border border-border bg-[#0d0d0d] p-6 sm:p-8 shadow-2xl space-y-6 font-mono text-xs">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border pb-6">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono uppercase text-muted-foreground">Developer Handoff Brief</span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-surface-raised text-foreground border border-border">
+            <span className="text-[11px] uppercase tracking-wider text-primary font-bold">Developer Handoff Brief</span>
+            <span className="text-[9px] uppercase px-2 py-0.5 bg-black text-foreground/60 border border-border">
               Report B: Verified Defect Package
             </span>
           </div>
-          <h2 className="text-lg font-semibold text-foreground mt-1">
-            Actionable Quality & Bug Handoff
+          <h2 className="text-xl font-display text-foreground mt-1">
+            Actionable Quality &amp; Bug Handoff
           </h2>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleCopyMarkdown}>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Button variant="outline" size="sm" onClick={handleCopyMarkdown} className="bg-black text-xs font-mono">
             {copied ? (
               <>
-                <Check className="h-3.5 w-3.5 mr-1 text-emerald-400" />
+                <Check className="size-3.5 mr-1 text-emerald-400" />
                 Copied Markdown!
               </>
             ) : (
               <>
-                <Copy className="h-3.5 w-3.5 mr-1" />
+                <Copy className="size-3.5 mr-1" />
                 Copy for GitHub / Linear
               </>
             )}
@@ -136,28 +134,29 @@ ${b.evidence ? `- **Technical Evidence**:\n\`\`\`json\n${JSON.stringify(b.eviden
           <Button
             variant="outline"
             size="sm"
+            className="bg-black text-xs font-mono"
             onClick={() => {
               const payload = JSON.stringify({ project, rqi, bugs, checks }, null, 2);
               navigator.clipboard.writeText(payload);
               alert("Defect telemetry JSON copied to clipboard!");
             }}
           >
-            <FileText className="h-3.5 w-3.5 mr-1 text-cyan-400" />
+            <FileText className="size-3.5 mr-1 text-primary" />
             Copy JSON
           </Button>
 
-          <Button variant="primary" size="sm" isLoading={isSharing} onClick={handleGenerateShareLink}>
-            <Share2 className="h-3.5 w-3.5 mr-1" />
-            Share Live Permapage
+          <Button variant="chamfer" size="sm" isLoading={isSharing} onClick={handleGenerateShareLink} className="h-9 px-4 text-xs">
+            <Share2 className="size-3.5 mr-1.5" />
+            [SHARE LIVE PERMAPAGE]
           </Button>
         </div>
       </div>
 
       {/* Share link banner if active */}
       {shareUrl && (
-        <div className="p-3 rounded-xl bg-surface-raised border border-emerald-500/30 flex items-center justify-between text-xs font-mono">
-          <div className="flex items-center gap-2 truncate">
-            <span className="text-emerald-400 font-semibold">Share Link:</span>
+        <div className="p-3.5 bg-black border border-primary/40 flex items-center justify-between text-xs font-mono">
+          <div className="flex items-center gap-2.5 truncate">
+            <span className="text-primary font-bold uppercase tracking-wider text-[10px]">Share Link:</span>
             <a href={shareUrl} target="_blank" rel="noreferrer" className="text-foreground underline truncate">
               {shareUrl}
             </a>
@@ -167,7 +166,7 @@ ${b.evidence ? `- **Technical Evidence**:\n\`\`\`json\n${JSON.stringify(b.eviden
               navigator.clipboard.writeText(shareUrl);
               alert("Share link copied to clipboard!");
             }}
-            className="text-xs text-muted-foreground hover:text-foreground shrink-0 ml-2"
+            className="text-xs text-primary hover:text-primary/80 uppercase tracking-wider shrink-0 ml-3 cursor-pointer"
           >
             Copy URL
           </button>
@@ -176,40 +175,40 @@ ${b.evidence ? `- **Technical Evidence**:\n\`\`\`json\n${JSON.stringify(b.eviden
 
       {/* Summary Card */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono text-xs">
-        <div className="p-4 rounded-xl bg-surface-raised border border-border">
-          <span className="text-[10px] uppercase text-muted-foreground block">Release Gating</span>
+        <div className="p-4 bg-black border border-border">
+          <span className="text-[10px] uppercase text-foreground/50 block tracking-wider">Release Gating</span>
           <span className="text-base font-bold text-foreground mt-1 block">
             {verdictText}
           </span>
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-[11px] text-foreground/50">
             RQI: {overallScoreVal} • Coverage: {coverageVal}%
           </span>
         </div>
 
-        <div className="p-4 rounded-xl bg-surface-raised border border-border">
-          <span className="text-[10px] uppercase text-muted-foreground block">Security Hard Gate</span>
+        <div className="p-4 bg-black border border-border">
+          <span className="text-[10px] uppercase text-foreground/50 block tracking-wider">Security Hard Gate</span>
           <div className="flex items-center gap-1.5 mt-1">
             {isSecurityPassed ? (
               <>
-                <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                <span className="text-sm font-semibold text-emerald-400">PASSED</span>
+                <ShieldCheck className="size-4 text-emerald-400" />
+                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">PASSED</span>
               </>
             ) : (
               <>
-                <ShieldAlert className="h-4 w-4 text-red-400" />
-                <span className="text-sm font-semibold text-red-400">FAILED (Fix Req.)</span>
+                <ShieldAlert className="size-4 text-red-400" />
+                <span className="text-xs font-bold text-red-400 uppercase tracking-wider">FAILED (Fix Req.)</span>
               </>
             )}
           </div>
-          <span className="text-[11px] text-muted-foreground mt-1 block">TLS &amp; Transport headers</span>
+          <span className="text-[11px] text-foreground/50 mt-1 block font-mono">TLS &amp; Transport headers</span>
         </div>
 
-        <div className="p-4 rounded-xl bg-surface-raised border border-border">
-          <span className="text-[10px] uppercase text-muted-foreground block">Defect Tally</span>
-          <span className="text-base font-bold text-foreground mt-1 block">
+        <div className="p-4 bg-black border border-border">
+          <span className="text-[10px] uppercase text-foreground/50 block tracking-wider">Defect Tally</span>
+          <span className="text-base font-bold text-primary mt-1 block">
             {bugs.length} Verified Defects
           </span>
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-[11px] text-foreground/50">
             {bugs.filter((b) => b.severity === "CRITICAL").length} Critical •{" "}
             {bugs.filter((b) => b.severity === "HIGH").length} High
           </span>
@@ -218,33 +217,33 @@ ${b.evidence ? `- **Technical Evidence**:\n\`\`\`json\n${JSON.stringify(b.eviden
 
       {/* Defect List */}
       <div className="space-y-3">
-        <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+        <h3 className="text-xs font-mono uppercase tracking-wider text-foreground/60">
           Verified Developer Bug List
         </h3>
         {bugs.length === 0 ? (
-          <div className="p-6 rounded-xl bg-surface-raised/40 border border-border text-center text-xs text-muted-foreground font-mono">
+          <div className="p-6 bg-black border border-border text-center text-xs text-foreground/40 font-mono">
             Zero defects currently pending developer handoff.
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {bugs.map((bug, idx) => (
               <div
                 key={bug.id}
-                className="p-4 rounded-xl bg-surface-raised border border-border flex flex-col gap-2 font-mono"
+                className="p-4 bg-black border border-border flex flex-col gap-2 font-mono"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-muted-foreground">#{idx + 1}</span>
-                    <span className="text-xs font-semibold text-foreground">{bug.title}</span>
+                    <span className="text-xs font-bold text-primary">#{idx + 1}</span>
+                    <span className="text-xs font-semibold text-foreground font-sans">{bug.title}</span>
                   </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded border border-border text-muted-foreground">
+                  <span className="text-[9px] uppercase px-2 py-0.5 border border-border text-primary bg-[#121212]">
                     {bug.severity}
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground font-sans">{bug.description}</p>
+                <p className="text-xs text-foreground/60 font-sans">{bug.description}</p>
                 {bug.stepsToReproduce && bug.stepsToReproduce.length > 0 && (
-                  <div className="text-[11px] text-muted-foreground bg-surface p-2 rounded border border-border">
-                    <span className="text-[9px] uppercase text-muted-foreground block mb-0.5">
+                  <div className="text-[11px] text-foreground/70 bg-[#0d0d0d] p-3 border border-border">
+                    <span className="text-[9px] uppercase text-foreground/40 block mb-1 tracking-wider">
                       Reproduction Steps:
                     </span>
                     <ol className="list-decimal list-inside space-y-0.5">

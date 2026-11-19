@@ -1,11 +1,38 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 
-export function Card({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  chamfer?: boolean;
+}
+
+export function Card({ className, chamfer = false, children, ...props }: CardProps) {
+  if (chamfer) {
+    return (
+      <div
+        style={{ "--poly-roundness": "10px" } as React.CSSProperties}
+        className={cn(
+          "relative bg-[#0d0d0d] border border-border p-6 transition-all duration-200 hover:border-primary/40 chamfer-card",
+          className
+        )}
+        {...props}
+      >
+        <span
+          style={{ "--h": "18px", "--hh": "3px" } as React.CSSProperties}
+          className="absolute inline-block w-[var(--h)] top-[var(--hh)] left-[var(--hh)] h-[1.5px] -rotate-45 origin-top -translate-x-1/2 bg-border pointer-events-none"
+        />
+        <span
+          style={{ "--h": "18px", "--hh": "3px" } as React.CSSProperties}
+          className="absolute w-[var(--h)] bottom-[var(--hh)] right-[var(--hh)] h-[1.5px] bg-border -rotate-45 translate-x-1/2 pointer-events-none"
+        />
+        {children}
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
-        "rounded-2xl bg-surface border border-border/60 p-6 shadow-sm transition-all duration-200 hover:border-border",
+        "rounded-xl bg-[#0d0d0d] border border-border p-6 shadow-sm transition-all duration-200 hover:border-[#383838]",
         className
       )}
       {...props}

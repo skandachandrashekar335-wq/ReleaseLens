@@ -136,3 +136,25 @@ ReleaseLens utilizes Firebase Authentication as its primary Identity Provider wi
    - Client calls `signOut(auth)` on the Firebase Client SDK to clear client-side token caches.
 5. **Fail-Closed Provider Security**:
    - If Firebase Admin credentials are not provisioned in the deployment environment, all ID token exchanges return HTTP 503 (`FIREBASE_NOT_CONFIGURED`) rather than falling back to unauthenticated development sessions.
+
+---
+
+## 6. SSRF Perimeter, Crawler Redirect Defense & Token-Bucket Rate Limiting (v0.9.0, ADR-032)
+
+1. **Strict SSRF Boundary & Userinfo Rejection**:
+   - `src/lib/engine/ssrf-guard.ts` rejects any target URL containing embedded userinfo credentials (`user:pass@host`).
+   - Extended IP validation blocks loopback (`127.0.0.0/8`), private subnets (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), link-local/cloud metadata (`169.254.0.0/16`, `fd00:ec2::254`), CGNAT (`100.64.0.0/10`), multicast (`224.0.0.0/4`), broadcast, and all IPv4-mapped IPv6 ranges.
+2. **Redirect-Chain SSRF Defense**:
+   - `src/lib/engine/link-crawler.ts` uses `safeFetchWithSsrfRedirectGuard(url, options, maxHops = 5)`.
+   - The crawler enforces `redirect: "manual"` and validates each hop's `Location` target against `validateTargetUrl` before connecting, eliminating redirect-based SSRF blind spots.
+3. **Sliding-Window Token-Bucket Rate Limiting**:
+   - `src/lib/security/rate-limit.ts` enforces in-memory sliding-window rate limiting per IP/user across:
+     - Copilot (`/api/assistant/chat`): 20 req/min
+     - Audit Execution (`/api/projects/[id]/audit`): 10 req/min
+     - Project Creation (`/api/projects`): 20 req/min
+     - Auth Session (`/api/auth/session`): 30 req/min
+     - Defect Creation (`/api/bugs`): 30 req/min
+     - Share Tokens (`/api/reports/share`): 20 req/min
+   - Excess requests receive HTTP 429 with `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` headers.
+4. **Production HTTP Security Headers**:
+   - Enforces `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`, `Cross-Origin-Opener-Policy: same-origin-allow-popups`, and `Content-Security-Policy`.

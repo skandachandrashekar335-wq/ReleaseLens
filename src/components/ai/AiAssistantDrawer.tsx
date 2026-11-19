@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Sparkles, X, Send, Bot, User, CheckCircle2, AlertTriangle, Shield } from "lucide-react";
-import { Button } from "@/lib/../components/ui/Button";
+import { Sparkles, X, Send, Bot, User } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 
 interface AiAssistantDrawerProps {
   projectId: string;
@@ -104,36 +104,36 @@ export function AiAssistantDrawer({ projectId, isOpen, onClose, auditContext }: 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-surface border-l border-border shadow-2xl flex flex-col">
+    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-[#0a0a0a] border-l border-border shadow-2xl flex flex-col font-mono">
       {/* Header */}
-      <div className="p-4 border-b border-border flex items-center justify-between bg-surface-raised/40">
-        <div className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-lg bg-surface border border-border flex items-center justify-center">
-            <Sparkles className="h-4 w-4 text-emerald-400" />
+      <div className="p-4 border-b border-border flex items-center justify-between bg-[#0d0d0d]">
+        <div className="flex items-center gap-3">
+          <div className="size-7 rounded-none border border-primary/50 bg-black flex items-center justify-center text-primary [box-shadow:inset_0_0_8px_rgba(235,184,0,0.3)]">
+            <Sparkles className="size-3.5" />
           </div>
           <div>
-            <h3 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+            <h3 className="text-xs font-semibold text-foreground flex items-center gap-2">
               Evidence Copilot
-              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span className="text-[9px] font-mono px-1.5 py-0.2 bg-primary/10 text-primary border border-primary/20">
                 Grounded
               </span>
             </h3>
-            <p className="text-[10px] text-muted-foreground font-mono">Read-Only Evidence Reasoning</p>
+            <p className="text-[10px] text-foreground/40 font-mono">Read-Only Evidence Reasoning</p>
           </div>
         </div>
 
         <button
           onClick={onClose}
-          className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-raised transition-colors"
+          className="p-1.5 text-foreground/40 hover:text-foreground hover:bg-black transition-colors border border-transparent hover:border-border cursor-pointer"
         >
-          <X className="h-4 w-4" />
+          <X className="size-4" />
         </button>
       </div>
 
       {/* Suggested Prompts if only 1 message */}
       {messages.length === 1 && (
-        <div className="p-4 bg-background/50 border-b border-border/50">
-          <span className="text-[10px] font-mono uppercase text-muted-foreground block mb-2">
+        <div className="p-4 bg-black border-b border-border space-y-2">
+          <span className="text-[10px] uppercase text-primary tracking-wider block">
             Suggested Inquiries:
           </span>
           <div className="flex flex-col gap-1.5">
@@ -141,7 +141,7 @@ export function AiAssistantDrawer({ projectId, isOpen, onClose, auditContext }: 
               <button
                 key={idx}
                 onClick={() => handleSendMessage(p)}
-                className="text-left text-xs p-2 rounded-lg bg-surface hover:bg-surface-raised border border-border text-foreground/80 hover:text-foreground transition-colors font-mono"
+                className="text-left text-xs p-2.5 bg-[#0d0d0d] hover:bg-[#141414] border border-border hover:border-primary/40 text-foreground/80 hover:text-foreground transition-colors font-mono cursor-pointer"
               >
                 &ldquo;{p}&rdquo;
               </button>
@@ -157,15 +157,15 @@ export function AiAssistantDrawer({ projectId, isOpen, onClose, auditContext }: 
             key={msg.id}
             className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
           >
-            <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground mb-1">
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-foreground/40 mb-1">
               {msg.role === "user" ? (
                 <>
                   <span>You</span>
-                  <User className="h-3 w-3" />
+                  <User className="size-3" />
                 </>
               ) : (
                 <>
-                  <Bot className="h-3 w-3 text-emerald-400" />
+                  <Bot className="size-3 text-primary" />
                   <span>ReleaseLens Copilot</span>
                 </>
               )}
@@ -173,20 +173,20 @@ export function AiAssistantDrawer({ projectId, isOpen, onClose, auditContext }: 
             </div>
 
             <div
-              className={`p-3.5 rounded-2xl text-xs leading-relaxed max-w-[90%] ${
+              className={`p-3.5 text-xs leading-relaxed max-w-[90%] ${
                 msg.role === "user"
-                  ? "bg-foreground text-background font-medium rounded-tr-sm"
-                  : "bg-surface-raised border border-border text-foreground font-mono rounded-tl-sm"
+                  ? "bg-black border border-primary text-foreground font-sans font-medium"
+                  : "bg-[#0d0d0d] border border-border text-foreground font-mono"
               }`}
             >
               <div className="whitespace-pre-wrap">{msg.content}</div>
 
               {msg.citations && msg.citations.length > 0 && (
-                <div className="mt-3 pt-2 border-t border-border/40 text-[10px] text-muted-foreground space-y-1">
-                  <span className="font-semibold block uppercase">Cited Evidence Sources:</span>
+                <div className="mt-3 pt-2 border-t border-border text-[10px] text-foreground/50 space-y-1">
+                  <span className="font-semibold block uppercase text-primary">Cited Evidence Sources:</span>
                   {msg.citations.map((c, i) => (
-                    <div key={i} className="flex items-center gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    <div key={i} className="flex items-center gap-1.5">
+                      <span className="size-1 rounded-full bg-primary" />
                       <span>{c}</span>
                     </div>
                   ))}
@@ -197,15 +197,15 @@ export function AiAssistantDrawer({ projectId, isOpen, onClose, auditContext }: 
         ))}
 
         {isLoading && (
-          <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
-            <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+          <div className="flex items-center gap-2 text-xs font-mono text-primary">
+            <span className="inline-block size-2 rounded-full bg-primary animate-ping" />
             Analyzing evidence telemetry...
           </div>
         )}
       </div>
 
       {/* Input Footer */}
-      <div className="p-3 border-t border-border bg-surface-raised/40">
+      <div className="p-3 border-t border-border bg-[#0d0d0d]">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -219,10 +219,16 @@ export function AiAssistantDrawer({ projectId, isOpen, onClose, auditContext }: 
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             disabled={isLoading}
-            className="flex-1 px-3 py-2 text-xs bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-foreground/40"
+            className="flex-1 px-3 py-2 text-xs bg-black border border-border text-foreground font-mono placeholder:text-foreground/30 focus:outline-none focus:border-primary/50"
           />
-          <Button type="submit" variant="primary" size="sm" disabled={isLoading || !inputValue.trim()}>
-            <Send className="h-3.5 w-3.5" />
+          <Button
+            type="submit"
+            variant="chamfer"
+            size="sm"
+            disabled={isLoading || !inputValue.trim()}
+            className="h-9 px-3.5"
+          >
+            <Send className="size-3.5" />
           </Button>
         </form>
       </div>

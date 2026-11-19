@@ -3,9 +3,14 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Shield, Sparkles, AlertCircle, ArrowRight, Lock, Key } from "lucide-react";
+import { AlertCircle, ArrowRight, Lock, Key } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { signInWithGoogle, isFirebaseClientConfigured } from "@/lib/firebase/client";
+import { Badge } from "@/components/ui/Badge";
+import {
+  signInWithGoogle,
+  getGoogleRedirectResult,
+  isFirebaseClientConfigured,
+} from "@/lib/firebase/client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,10 +19,28 @@ export default function LoginPage() {
   const [isConfigured, setIsConfigured] = useState(true);
 
   useEffect(() => {
-    // Check if client SDK credentials are configured
     setIsConfigured(isFirebaseClientConfigured());
 
-    // Check if session already exists
+    // Check if user just completed redirect authentication
+    getGoogleRedirectResult()
+      .then(async (res) => {
+        if (res?.idToken) {
+          setIsLoading(true);
+          const sessionRes = await fetch("/api/auth/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idToken: res.idToken }),
+          });
+          if (sessionRes.ok) {
+            router.push("/dashboard");
+            return;
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("Redirect auth error:", err);
+      });
+
     fetch("/api/auth/session")
       .then((res) => res.json())
       .then((data) => {
@@ -39,9 +62,14 @@ export default function LoginPage() {
         );
       }
 
-      const { idToken } = await signInWithGoogle();
+      const authResult = await signInWithGoogle();
+      if (!authResult) {
+        // Returned null because redirect was initiated
+        return;
+      }
 
-      // Exchange ID token for secure HTTP-only application session cookie
+      const { idToken } = authResult;
+
       const res = await fetch("/api/auth/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -63,49 +91,51 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md space-y-6 p-8 rounded-2xl bg-surface border border-border shadow-xl">
-        <div className="text-center space-y-2">
-          <div className="inline-flex h-12 w-12 rounded-xl bg-surface-raised border border-border items-center justify-center text-foreground shadow-sm">
-            <Shield className="h-6 w-6 text-emerald-400" />
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Sign In to ReleaseLens</h1>
-          <p className="text-xs text-muted-foreground">
+    <div className="min-h-[80vh] flex items-center justify-center px-4 py-16 bg-transparent text-foreground">
+      <div className="w-full max-w-md space-y-8 p-8 bg-[#0a0c10]/85 backdrop-blur-[2px] border border-border/80 shadow-2xl relative">
+        <div className="text-center space-y-3">
+          <Badge variant="chamfer" glowDot className="mb-2">
+            ACCESS CONTROL
+          </Badge>
+          <h1 className="text-3xl font-display text-foreground">
+            Sign In to <i className="font-light italic text-primary">ReleaseLens</i>
+          </h1>
+          <p className="text-xs font-mono text-foreground/60">
             Evidence-backed quality intelligence &amp; autonomous testing
           </p>
         </div>
 
         {errorMessage && (
-          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400 flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <div className="p-3 bg-red-500/10 border border-red-500/30 text-xs text-red-400 flex items-start gap-2.5 font-mono">
+            <AlertCircle className="size-4 shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <p className="font-medium">Authentication Error</p>
+              <p className="font-semibold uppercase tracking-wider text-[11px]">Authentication Error</p>
               <p className="opacity-90">{errorMessage}</p>
             </div>
           </div>
         )}
 
         {!isConfigured && (
-          <div className="p-3.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 space-y-2">
-            <div className="flex items-center gap-2 font-medium">
-              <Key className="h-4 w-4 shrink-0" />
+          <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 space-y-2 font-mono">
+            <div className="flex items-center gap-2 font-semibold uppercase tracking-wider text-[11px]">
+              <Key className="size-3.5 shrink-0" />
               <span>Firebase Configuration Required</span>
             </div>
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
+            <p className="text-[11px] text-foreground/60 leading-relaxed">
               Google Sign-In uses Firebase Authentication. To enable live sign-in, provide your Firebase configuration in{" "}
-              <code className="text-foreground bg-surface-raised px-1 py-0.5 rounded">.env.local</code>.
+              <code className="text-primary bg-black px-1.5 py-0.5 border border-border">.env.local</code>.
             </p>
           </div>
         )}
 
-        <div className="space-y-3 pt-2">
+        <div className="space-y-4 pt-2">
           <Button
             onClick={handleGoogleSignIn}
             isLoading={isLoading}
-            className="w-full justify-center gap-3 py-2.5 text-sm font-medium"
-            variant="secondary"
+            variant="chamfer"
+            className="w-full justify-center gap-3 h-12 text-xs"
           >
-            <svg className="h-4 w-4" viewBox="0 0 24 24">
+            <svg className="size-4" viewBox="0 0 24 24">
               <path
                 fill="#4285F4"
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -123,23 +153,23 @@ export default function LoginPage() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
               />
             </svg>
-            Sign in with Google
+            [SIGN IN WITH GOOGLE]
           </Button>
 
           <div className="text-center pt-2">
             <Link
               href="/"
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1 font-mono"
+              className="text-xs text-foreground/50 hover:text-primary transition-colors inline-flex items-center gap-1.5 font-mono uppercase tracking-wider"
             >
               <span>Return to landing page</span>
-              <ArrowRight className="h-3 w-3" />
+              <ArrowRight className="size-3" />
             </Link>
           </div>
         </div>
 
-        <div className="pt-4 border-t border-border/60 text-center">
-          <p className="text-[11px] text-muted-foreground font-mono flex items-center justify-center gap-1.5">
-            <Lock className="h-3 w-3 text-emerald-400" />
+        <div className="pt-6 border-t border-border text-center">
+          <p className="text-[11px] text-foreground/40 font-mono flex items-center justify-center gap-2">
+            <Lock className="size-3 text-primary" />
             Zero-trust identity verification via Firebase Admin SDK
           </p>
         </div>

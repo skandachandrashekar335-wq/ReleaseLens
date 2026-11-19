@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/store/db-adapter";
 import { getAuthSession } from "@/lib/auth/session";
+import { checkRateLimit, createRateLimitResponse, getClientIp } from "@/lib/security/rate-limit";
 
 export async function GET(req: Request) {
   try {
@@ -42,6 +43,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized: Valid session required" }, { status: 401 });
     }
     const userId = auth.user.id;
+
+    // Rate limiting: 30 bug creations per minute
+    const rateCheck = checkRateLimit(userId || getClientIp(req), {
+      limit: 30,
+      windowSeconds: 60,
+      prefix: "bugs",
+    });
+    if (!rateCheck.success) {
+      return createRateLimitResponse(rateCheck);
+    }
 
     const body = await req.json();
     const {

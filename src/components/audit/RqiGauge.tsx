@@ -46,33 +46,33 @@ export function RqiGauge({ rqi, className = "" }: RqiGaugeProps) {
 
   const getScoreColor = () => {
     if (currentVerdict === "RELEASE_BLOCKED" || currentOverall === null) return "text-red-500 stroke-red-500";
-    if (normalizedScore >= 80) return "text-emerald-400 stroke-emerald-400";
+    if (normalizedScore >= 80) return "text-primary stroke-primary";
     if (normalizedScore >= 60) return "text-amber-400 stroke-amber-400";
     return "text-red-400 stroke-red-400";
   };
 
   return (
-    <div className={`p-6 rounded-2xl bg-surface border border-border flex flex-col gap-6 shadow-xl ${className}`}>
+    <div className={`p-6 bg-[#0d0d0d] border border-border flex flex-col gap-6 shadow-2xl ${className}`}>
       {/* Top Header */}
-      <div className="flex items-center justify-between border-b border-border/60 pb-4">
+      <div className="flex items-center justify-between border-b border-border pb-4">
         <div>
-          <h3 className="text-sm font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-            <Info className="h-3.5 w-3.5 text-muted-foreground" />
+          <h3 className="text-xs font-mono uppercase tracking-wider text-primary flex items-center gap-2">
+            <span className="inline-block size-1.5 rounded-full bg-primary shadow-glow shadow-primary/60" />
             ReleaseLens Quality Index (RQI)
           </h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Tripartite Governance (ADR-020 & ADR-023)
+          <p className="text-[11px] font-mono text-foreground/50 mt-0.5">
+            Tripartite Governance (ADR-020 &amp; ADR-023)
           </p>
         </div>
 
         {/* Verdict Badge */}
         <div
-          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium border ${verdictStyle.bg} ${verdictStyle.text} ${verdictStyle.border}`}
+          className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-mono font-medium border ${verdictStyle.bg} ${verdictStyle.text} ${verdictStyle.border}`}
         >
-          {currentVerdict === "VERIFIED_READY" && <CheckCircle2 className="h-3.5 w-3.5" />}
-          {currentVerdict === "PROVISIONAL_PASS" && <CheckCircle2 className="h-3.5 w-3.5" />}
-          {currentVerdict === "REVIEW_REQUIRED" && <AlertTriangle className="h-3.5 w-3.5" />}
-          {currentVerdict === "RELEASE_BLOCKED" && <XCircle className="h-3.5 w-3.5" />}
+          {currentVerdict === "VERIFIED_READY" && <CheckCircle2 className="size-3.5" />}
+          {currentVerdict === "PROVISIONAL_PASS" && <CheckCircle2 className="size-3.5 text-primary" />}
+          {currentVerdict === "REVIEW_REQUIRED" && <AlertTriangle className="size-3.5 text-amber-400" />}
+          {currentVerdict === "RELEASE_BLOCKED" && <XCircle className="size-3.5 text-red-400" />}
           {currentVerdict.replace("_", " ")}
         </div>
       </div>
@@ -81,14 +81,14 @@ export function RqiGauge({ rqi, className = "" }: RqiGaugeProps) {
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
         {/* Dial */}
         <div className="md:col-span-4 flex flex-col items-center justify-center">
-          <div className="relative w-40 h-40 flex items-center justify-center">
+          <div className="relative size-40 flex items-center justify-center">
             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 160 160">
               {/* Background track */}
               <circle
                 cx="80"
                 cy="80"
                 r={radius}
-                className="stroke-surface-raised"
+                className="stroke-[#1f1f1f]"
                 strokeWidth="10"
                 fill="transparent"
               />
@@ -179,29 +179,29 @@ export function RqiGauge({ rqi, className = "" }: RqiGaugeProps) {
           </div>
 
           {/* Dimension Breakdown */}
-          <div className="space-y-2 pt-2 border-t border-border/50">
+          <div className="space-y-2 pt-2 border-t border-border">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-              <div className="bg-surface-raised p-2 rounded-lg border border-border">
-                <div className="text-[10px] text-muted-foreground font-mono">Security</div>
-                <div className="text-sm font-semibold font-mono text-foreground">
+              <div className="bg-black p-2.5 border border-border">
+                <div className="text-[10px] text-foreground/50 font-mono uppercase">Security</div>
+                <div className="text-sm font-semibold font-mono text-primary">
                   {securityScore ?? categoryScores?.security ?? 85}/100
                 </div>
               </div>
-              <div className="bg-surface-raised p-2 rounded-lg border border-border">
-                <div className="text-[10px] text-muted-foreground font-mono">Availability</div>
-                <div className="text-sm font-semibold font-mono text-foreground">
+              <div className="bg-black p-2.5 border border-border">
+                <div className="text-[10px] text-foreground/50 font-mono uppercase">Availability</div>
+                <div className="text-sm font-semibold font-mono text-primary">
                   {availabilityScore ?? 100}/100
                 </div>
               </div>
-              <div className="bg-surface-raised p-2 rounded-lg border border-border">
-                <div className="text-[10px] text-muted-foreground font-mono">Links & Routes</div>
-                <div className="text-sm font-semibold font-mono text-foreground">
+              <div className="bg-black p-2.5 border border-border">
+                <div className="text-[10px] text-foreground/50 font-mono uppercase">Links & Routes</div>
+                <div className="text-sm font-semibold font-mono text-primary">
                   {linksScore ?? categoryScores?.links ?? 80}/100
                 </div>
               </div>
-              <div className="bg-surface-raised p-2 rounded-lg border border-border">
-                <div className="text-[10px] text-muted-foreground font-mono">Performance</div>
-                <div className="text-sm font-semibold font-mono text-foreground">
+              <div className="bg-black p-2.5 border border-border">
+                <div className="text-[10px] text-foreground/50 font-mono uppercase">Performance</div>
+                <div className="text-sm font-semibold font-mono text-primary">
                   {performanceScore ?? categoryScores?.performance ?? 75}/100
                 </div>
               </div>
@@ -210,11 +210,11 @@ export function RqiGauge({ rqi, className = "" }: RqiGaugeProps) {
 
           {/* Reasons / Verdict explanation */}
           {reasons && reasons.length > 0 && (
-            <div className="bg-surface-raised/60 p-3 rounded-lg border border-border text-xs space-y-1">
-              <span className="font-mono text-[10px] uppercase text-muted-foreground">Verdict Basis:</span>
-              <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">
+            <div className="bg-black p-3 border border-border text-xs space-y-1">
+              <span className="font-mono text-[10px] uppercase text-primary tracking-wider">Verdict Basis:</span>
+              <ul className="list-disc list-inside space-y-0.5 text-foreground/70 font-mono text-[11px]">
                 {reasons.map((r, i) => (
-                  <li key={i} className="text-xs text-foreground/90">
+                  <li key={i} className="text-foreground/80">
                     {r}
                   </li>
                 ))}

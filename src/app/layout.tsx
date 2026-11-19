@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Navbar } from "@/components/navigation/Navbar";
 import { Footer } from "@/components/navigation/Footer";
+import { GlBackground } from "@/components/gl/GlWrapper";
 
 export const metadata: Metadata = {
   title: "ReleaseLens — Web Application Testing, Bug Discovery & Release-Readiness",
@@ -23,10 +24,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className="min-h-screen bg-background text-foreground antialiased flex flex-col selection:bg-foreground selection:text-background">
-        <Navbar />
-        <main className="flex-1 flex flex-col">{children}</main>
-        <Footer />
+      <body className="min-h-screen bg-black text-foreground antialiased flex flex-col selection:bg-foreground selection:text-background relative">
+        {/* Global Persistent Ambient WebGL Particle Background (Single Context) */}
+        <GlBackground />
+
+        {/* Global Content Container */}
+        <div className="relative z-10 flex flex-col min-h-screen">
+          <Navbar />
+          <main className="flex-1 flex flex-col">{children}</main>
+          <Footer />
+        </div>
       </body>
     </html>
   );

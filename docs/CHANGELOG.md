@@ -4,6 +4,109 @@ All notable changes to the ReleaseLens project are documented in this file in ad
 
 ---
 
+## [0.9.0] - 2026-11-19 — Production Security Hardening, SSRF Redirect Defense, Token-Bucket Rate Limiting & Enterprise HTTP Security Headers
+
+### Added & Hardened
+- **SSRF Perimeter Hardening & Userinfo Rejection (`src/lib/engine/ssrf-guard.ts`)**:
+  - Added strict rejection of URLs containing embedded userinfo credentials (`url.username || url.password`).
+  - Extended CIDR and IP literal blocking to IPv4 multicast (`224.0.0.0/4`), broadcast (`255.255.255.255`), reserved/future blocks (`240.0.0.0/4`), IPv6 link-local, and cloud metadata literals (`169.254.169.254`, `fd00:ec2::254`).
+- **Safe Manual Redirect Crawler (`src/lib/engine/link-crawler.ts`)**:
+  - Implemented `safeFetchWithSsrfRedirectGuard(url, options, maxHops = 5)`.
+  - Replaced blind `fetch(targetUrl)` with manual redirect following (`redirect: "manual"`), validating every single redirect hop through `validateTargetUrl` before fetching.
+  - Mitigated the Redirect SSRF Blind Spot (State Audit Risk #2).
+- **Zero-Dependency Token-Bucket Rate Limiter (`src/lib/security/rate-limit.ts`)**:
+  - Built high-performance sliding-window in-memory token bucket rate limiter with automatic stale bucket memory pruning.
+  - Applied strict rate limiting across sensitive endpoints:
+    - `POST /api/assistant/chat`: 20 queries/min.
+    - `POST /api/projects/[id]/audit`: 10 executions/min.
+    - `POST /api/projects`: 20 registrations/min.
+    - `POST /api/auth/session`: 30 token exchanges/min.
+    - `POST /api/bugs`: 30 bug creations/min.
+    - `POST /api/reports/share`: 20 share tokens/min.
+  - Standardized RFC-compliant HTTP 429 response formatting with `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` headers.
+- **Enterprise HTTP Security Headers (`next.config.ts`)**:
+  - Enforced `X-Content-Type-Options: nosniff`.
+  - Enforced `X-Frame-Options: DENY`.
+  - Enforced `Referrer-Policy: strict-origin-when-cross-origin`.
+  - Enforced `Permissions-Policy: camera=(), microphone=(), geolocation=(), browsing-topics=()`.
+  - Enforced `Cross-Origin-Opener-Policy: same-origin-allow-popups` (ensuring Firebase Auth popup compatibility).
+  - Enforced comprehensive `Content-Security-Policy` compatible with Next.js, Three.js/WebGL shaders, Google/Firebase Auth, and Supabase database endpoints.
+- **Automated Security Test Suite (`tests/security-hardening.test.ts`)**:
+  - Added 7 automated tests covering userinfo rejection, multicast/broadcast rejection, IPv6 cloud metadata rejection, redirect-chain SSRF prevention, and rate limiter token exhaustion.
+  - All 15 test suites and 81 tests passing (`1.6s`).
+- **Full Ego-Browser E2E Audit (`/testmode`)**:
+  - Verified 34 automated browser checks across desktop (`1440x900`) and mobile (`390x844`).
+  - Verified zero leaked server secrets across client JS chunks (`.next/static/**`).
+  - Verified zero uncaught browser console errors across all visited routes.
+
+---
+
+## [0.8.1] - 2026-11-18 — Global Persistent WebGL Ambient Background & Translucent Surface Hierarchy
+
+### Added & Overhauled
+- **Single Persistent WebGL Root Architecture (`src/app/layout.tsx`)**:
+  - Mounted dynamic client-only WebGL canvas (`GlBackground`) once at root layout level with `fixed inset-0 pointer-events-none z-0`.
+  - Guaranteed single WebGL context lifecycle across the application, eliminating context loss, shader recompilation, and texture memory churn during client-side route navigation.
+  - Removed duplicate `<GlBackground />` mount from `src/app/page.tsx` while preserving decoupled hover introspection via custom window events (`releaselens:audit-hover`).
+- **Route-Aware Visual Balance & Contrast Shielding (`src/components/gl/GlWrapper.tsx`)**:
+  - Configured intelligent pathname inspection via `usePathname()`:
+    - **Landing Page (`/`)**: Full vivid prominence (`0.82` opacity, `1.0` speed, `0.52` noise intensity).
+    - **Inner Routes (`/dashboard`, `/projects/*`, `/reports/*`)**: Calibrated ambient wave (`0.38` opacity, `0.65` speed, `0.35` noise intensity).
+  - Implemented an inner-route ambient contrast shield (`bg-black/40 backdrop-blur-[1px]`) preventing particle displacement from degrading legibility of telemetry tables, JSON probe dumps, and RQI gauges.
+- **Translucent Dashboard Surfaces (`src/app/**`)**:
+  - Updated inner page shells from solid opaque `bg-black` to `bg-transparent`.
+  - Re-engineered dashboard metric cards, project cards, and triage split-panes to deep translucent dark surfaces (`bg-[#0a0c10]/80` and `bg-[#0c0e14]/85` with `backdrop-blur-[2px]`).
+- **Accessibility & Motion Guards**:
+  - Integrated `prefers-reduced-motion` detection, throttling particle velocity to `0.05` when requested.
+  - Enforced strict `pointer-events: none` on WebGL canvas and shield overlays to safeguard all click, keyboard, and touch targets.
+- **Verification**:
+  - Verified 74/74 Vitest test suites passing (`3.4s`).
+  - Verified zero Next.js 15 build errors across all 13 routes (`next build`).
+  - Captured desktop (1440x900) and mobile (390x844) visual evidence across landing, dashboard, project overview, and findings triage routes using `ego-browser`.
+
+---
+
+## [0.8.0] - 2026-11-18 — UI/UX Overhaul: Porting v0 High-Aesthetic Pitch-Black & Gold Design System with WebGL Particles
+
+### Added & Overhauled
+- **Custom Local Typography & Fonts (`public/Sentient-*.woff`, `src/app/globals.css`, `tailwind.config.ts`)**:
+  - Ported authentic `Sentient-Extralight.woff` (weight 200, normal) and `Sentient-LightItalic.woff` (weight 300, italic) from the exported v0 template into `public/`.
+  - Configured `@font-face` declarations and added `font-sentient` utility in Tailwind configuration.
+  - Applied `font-sentient` to the landing page hero headline with the signature warm amber gold italic emphasis (`<i className="font-light italic text-primary">quality</i>`).
+- **GPU-Accelerated WebGL Particle Shader Background (`src/components/gl/*`)**:
+  - Implemented FBO GPU particle simulation pipeline using Three.js, `@react-three/fiber`, and `@react-three/drei`.
+  - Ported shaders: `simulationMaterial.ts`, `pointMaterial.ts`, `utils.ts` (periodic wave noise), and `vignetteShader.ts` (post-processing vignette effect).
+  - Built SSR-safe client wrapper `src/components/gl/GlWrapper.tsx` using `next/dynamic(..., { ssr: false })` with WebGL error boundaries and graceful non-blocking pitch-black fallback.
+  - Linked interactive particle acceleration and introspection to user hover states on the `[RUN AUDIT]` button (`introspect={hovering}`).
+- **Design Tokens & Theme Geometry (`src/app/globals.css`, `tailwind.config.ts`)**:
+  - Implemented pitch-black `#000000` foundation with refined `#0a0a0a` secondary surfaces, `#0d0d0d` cards, and `#262626` fine borders.
+  - Added primary amber gold token `#EBB800` with inset glow (`box-shadow: inset 0 0 54px 0px #EBB800`) and exterior halos (`shadow-glow shadow-primary/50`).
+  - Added `.chamfer-badge` (`--poly-roundness: 6px`) and `.chamfer-button` (`--poly-roundness: 16px`) polygon clip-path utility classes matching the v0 reference template.
+  - Added `#webgl` fixed background positioning with `pointer-events: none` ensuring seamless click-through interactivity.
+- **Polygonal UI Primitives (`src/components/ui/*`)**:
+  - `Button.tsx`: Added `variant="chamfer"` with cut-corner polygon geometry, diagonal corner accent lines, inset gold glow, and uppercase monospace tracking.
+  - `Badge.tsx`: Added `variant="chamfer"` with 4 diagonal corner tick marks and glowing status indicator dot.
+  - `Card.tsx`: Added `chamfer` mode with angled corner lines on deep `#0d0d0d` surfaces.
+  - `Modal.tsx`: Reskinned modal overlay and dialog container with pitch-black backdrop blur and serif display headings.
+- **Complete Application Reskinning**:
+  - `src/app/page.tsx`: Transformed hero with live WebGL particle background, Sentient font headline, chamfered top badge, monospace subtitle, chamfered URL audit launcher, three-tier architecture cards, and RQI preview telemetry.
+  - `src/components/navigation/Navbar.tsx`: Added geometric logo, uppercase monospace navigation links, live engine status pill, and gold chamfer workspace trigger.
+  - `src/components/navigation/Footer.tsx`: Dark technical footer with engine execution tiers and governance citations.
+  - `src/app/dashboard/page.tsx`: Restyled application inventory, metrics cards, search bar, and registration modal with chamfer buttons.
+  - `src/app/projects/[id]/page.tsx`: Elevated project overview with gold execution buttons, three-tier status matrix, telemetry gauges, and developer handoff briefs.
+  - `src/app/projects/[id]/findings/page.tsx`: Reskinned two-pane triage workbench with pitch-black inspector, gold filter pills, keyboard navigation, and chamfer triage controls.
+  - `src/app/projects/[id]/bugs/page.tsx`: Upgraded defect inventory with status pills and retest trigger modals.
+  - `src/app/projects/[id]/deltas/page.tsx`: Refined comparative release delta and regression intelligence cards.
+  - `src/app/login/page.tsx`: Styled authentication portal with Google Sign-In and access control cards.
+  - `src/app/reports/[token]/page.tsx`: Reskinned public shared developer handoff permapage.
+- **Verification & Evidence**:
+  - Executed all 74 Vitest automated regression tests with 100% pass rate.
+  - Verified clean Next.js 15 production build (`next build`) across all 13 routes.
+  - Verified live application with Ego Browser exclusively (`ego-browser nodejs`), capturing full-page desktop (1440x900) and mobile (390x844) screenshots across all views, including live WebGL shader rendering and button hover acceleration.
+  - Documented architectural decisions in ADR-031 (`docs/DECISIONS.md`).
+
+---
+
 ## [0.7.0] - 2026-11-04 — Firebase Authentication Integration & Admin SDK Verification
 
 ### Added

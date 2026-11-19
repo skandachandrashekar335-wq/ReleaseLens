@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import { Severity } from "@/lib/types";
-import { Modal } from "@/lib/../components/ui/Modal";
-import { Button } from "@/lib/../components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
 import { Bug, Plus, Trash2 } from "lucide-react";
 
 interface ManualBugModalProps {
@@ -96,10 +96,10 @@ export function ManualBugModal({ projectId, isOpen, onClose, onCreateBug }: Manu
       description="Record structured findings observed during manual testing sessions with developer reproduction steps."
       size="lg"
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4 font-mono text-xs">
         {/* Title */}
         <div>
-          <label className="block text-xs font-mono uppercase text-muted-foreground mb-1">
+          <label className="block text-[11px] uppercase tracking-wider text-foreground/60 mb-1.5">
             Defect Summary / Title *
           </label>
           <input
@@ -108,20 +108,20 @@ export function ManualBugModal({ projectId, isOpen, onClose, onCreateBug }: Manu
             placeholder="e.g. Checkout modal fails to submit when promo code is entered"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-3 py-2 text-xs bg-surface-raised border border-border rounded-lg text-foreground font-mono focus:outline-none focus:border-foreground/50"
+            className="w-full px-3 py-2 text-xs bg-black border border-border text-foreground font-mono focus:outline-none focus:border-primary/50"
           />
         </div>
 
         {/* Severity & Reporter */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-mono uppercase text-muted-foreground mb-1">
+            <label className="block text-[11px] uppercase tracking-wider text-foreground/60 mb-1.5">
               Severity *
             </label>
             <select
               value={severity}
               onChange={(e) => setSeverity(e.target.value as Severity)}
-              className="w-full px-3 py-2 text-xs bg-surface-raised border border-border rounded-lg text-foreground font-mono focus:outline-none focus:border-foreground/50"
+              className="w-full px-3 py-2 text-xs bg-black border border-border text-foreground font-mono focus:outline-none focus:border-primary/50"
             >
               <option value="CRITICAL">CRITICAL (Blocks Release Gate)</option>
               <option value="HIGH">HIGH (Degrades Core User Journey)</option>
@@ -132,7 +132,7 @@ export function ManualBugModal({ projectId, isOpen, onClose, onCreateBug }: Manu
           </div>
 
           <div>
-            <label className="block text-xs font-mono uppercase text-muted-foreground mb-1">
+            <label className="block text-[11px] uppercase tracking-wider text-foreground/60 mb-1.5">
               Tester / Reporter *
             </label>
             <input
@@ -140,44 +140,44 @@ export function ManualBugModal({ projectId, isOpen, onClose, onCreateBug }: Manu
               required
               value={reportedBy}
               onChange={(e) => setReportedBy(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-surface-raised border border-border rounded-lg text-foreground font-mono focus:outline-none focus:border-foreground/50"
+              className="w-full px-3 py-2 text-xs bg-black border border-border text-foreground font-mono focus:outline-none focus:border-primary/50"
             />
           </div>
         </div>
 
         {/* Description */}
         <div>
-          <label className="block text-xs font-mono uppercase text-muted-foreground mb-1">
-            Description & Context
+          <label className="block text-[11px] uppercase tracking-wider text-foreground/60 mb-1.5">
+            Description &amp; Context
           </label>
           <textarea
             rows={2}
             placeholder="Provide relevant user journey, branch, or browser context..."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-3 py-2 text-xs bg-surface-raised border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-foreground/50"
+            className="w-full px-3 py-2 text-xs bg-black border border-border text-foreground font-mono placeholder:text-foreground/30 focus:outline-none focus:border-primary/50"
           />
         </div>
 
         {/* Steps to Reproduce */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-mono uppercase text-muted-foreground">
+            <label className="text-[11px] uppercase tracking-wider text-foreground/60">
               Steps to Reproduce
             </label>
             <button
               type="button"
               onClick={handleAddStep}
-              className="text-[11px] font-mono text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
+              className="text-[11px] font-mono text-primary hover:text-primary/80 flex items-center gap-1 cursor-pointer"
             >
-              <Plus className="h-3 w-3" /> Add Step
+              <Plus className="size-3" /> Add Step
             </button>
           </div>
 
           <div className="space-y-2">
             {steps.map((step, idx) => (
               <div key={idx} className="flex items-center gap-2">
-                <span className="text-xs font-mono text-muted-foreground w-5 text-right">
+                <span className="text-xs font-mono text-foreground/40 w-5 text-right">
                   {idx + 1}.
                 </span>
                 <input
@@ -185,15 +185,15 @@ export function ManualBugModal({ projectId, isOpen, onClose, onCreateBug }: Manu
                   placeholder={`Step ${idx + 1}...`}
                   value={step}
                   onChange={(e) => handleUpdateStep(idx, e.target.value)}
-                  className="flex-1 px-3 py-1.5 text-xs bg-surface-raised border border-border rounded-lg text-foreground font-mono focus:outline-none focus:border-foreground/50"
+                  className="flex-1 px-3 py-1.5 text-xs bg-black border border-border text-foreground font-mono focus:outline-none focus:border-primary/50"
                 />
                 {steps.length > 1 && (
                   <button
                     type="button"
                     onClick={() => handleRemoveStep(idx)}
-                    className="p-1 text-muted-foreground hover:text-red-400"
+                    className="p-1 text-foreground/40 hover:text-red-400 cursor-pointer"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 className="size-3.5" />
                   </button>
                 )}
               </div>
@@ -204,7 +204,7 @@ export function ManualBugModal({ projectId, isOpen, onClose, onCreateBug }: Manu
         {/* Expected vs Actual */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-mono uppercase text-muted-foreground mb-1">
+            <label className="block text-[11px] uppercase tracking-wider text-foreground/60 mb-1.5">
               Expected Behavior
             </label>
             <textarea
@@ -212,12 +212,12 @@ export function ManualBugModal({ projectId, isOpen, onClose, onCreateBug }: Manu
               placeholder="e.g. Discount is applied and cart updates total immediately"
               value={expectedBehavior}
               onChange={(e) => setExpectedBehavior(e.target.value)}
-              className="w-full px-3 py-1.5 text-xs bg-surface-raised border border-border rounded-lg text-foreground font-mono focus:outline-none focus:border-foreground/50"
+              className="w-full px-3 py-1.5 text-xs bg-black border border-border text-foreground font-mono focus:outline-none focus:border-primary/50"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-mono uppercase text-muted-foreground mb-1">
+            <label className="block text-[11px] uppercase tracking-wider text-foreground/60 mb-1.5">
               Actual Behavior
             </label>
             <textarea
@@ -225,14 +225,14 @@ export function ManualBugModal({ projectId, isOpen, onClose, onCreateBug }: Manu
               placeholder="e.g. Button enters infinite spinner; 500 error in Network tab"
               value={actualBehavior}
               onChange={(e) => setActualBehavior(e.target.value)}
-              className="w-full px-3 py-1.5 text-xs bg-surface-raised border border-border rounded-lg text-foreground font-mono focus:outline-none focus:border-foreground/50"
+              className="w-full px-3 py-1.5 text-xs bg-black border border-border text-foreground font-mono focus:outline-none focus:border-primary/50"
             />
           </div>
         </div>
 
         {/* Evidence / JSON / Logs */}
         <div>
-          <label className="block text-xs font-mono uppercase text-muted-foreground mb-1">
+          <label className="block text-[11px] uppercase tracking-wider text-foreground/60 mb-1.5">
             Technical Evidence / Error Stack (Optional)
           </label>
           <textarea
@@ -240,18 +240,18 @@ export function ManualBugModal({ projectId, isOpen, onClose, onCreateBug }: Manu
             placeholder="Paste raw error message, JSON payload, or network response..."
             value={rawEvidence}
             onChange={(e) => setRawEvidence(e.target.value)}
-            className="w-full px-3 py-1.5 text-xs bg-surface-raised border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-foreground/50"
+            className="w-full px-3 py-1.5 text-xs bg-black border border-border text-foreground font-mono placeholder:text-foreground/30 focus:outline-none focus:border-primary/50"
           />
         </div>
 
         {/* Submit */}
-        <div className="pt-3 border-t border-border flex justify-end gap-2">
+        <div className="pt-4 border-t border-border flex justify-end gap-3">
           <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" variant="primary" size="sm" isLoading={isSubmitting}>
-            <Bug className="h-3.5 w-3.5 mr-1" />
-            Log Defect Report
+          <Button type="submit" variant="chamfer" size="sm" isLoading={isSubmitting} className="h-9 px-4">
+            <Bug className="size-3.5 mr-1" />
+            [LOG DEFECT REPORT]
           </Button>
         </div>
       </form>

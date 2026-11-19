@@ -3,6 +3,9 @@ import { db } from "@/lib/store/db-adapter";
 import { executeAutomatedAudit } from "@/lib/engine/audit-runner";
 import { analyzeReleaseDelta } from "@/lib/engine/delta-analyzer";
 import { getAuthSession } from "@/lib/auth/session";
+import { checkRateLimit, createRateLimitResponse, getClientIp } from "@/lib/security/rate-limit";
+
+export const maxDuration = 15;
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -10,6 +13,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const auth = await getAuthSession();
     if (!auth.user || !auth.isAuthenticated) {
       return NextResponse.json({ error: "Unauthorized: Valid session required" }, { status: 401 });
+    }
+
+    // Rate limiting on audit trigger: 10 executions per minute per user/IP
+    const clientIdentifier = auth.user.id || getClientIp(req);
+    const rateCheck = checkRateLimit(clientIdentifier, {
+      limit: 10,
+      windowSeconds: 60,
+      prefix: "audit",
+    });
+    if (!rateCheck.success) {
+      return createRateLimitResponse(rateCheck);
     }
 
     const project = await db.getProject(id);

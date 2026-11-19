@@ -1,26 +1,56 @@
+/* Hallmark & Impeccable Verified: Design Tokens & Invariants */
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+
+@font-face {
+  font-family: 'Sentient';
+  src: url('/Sentient-Extralight.woff') format('woff');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sentient';
+  src: url('/Sentient-LightItalic.woff') format('woff');
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
+  /* Font Stacks */
   --font-sans: 'Instrument Sans', system-ui, -apple-system, sans-serif;
   --font-display: 'Instrument Serif', Georgia, serif;
+  --font-sentient: 'Sentient', var(--font-display), Georgia, serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* Deep dark luxury palette inspired by v0-optimus-delta */
-  --background: #08090C;
-  --foreground: #F4F6FB;
-  --surface: #10121A;
-  --surface-raised: #181B26;
-  --border: #222634;
-  --border-subtle: #191C26;
-  --muted: #1A1D28;
-  --muted-foreground: #8B949E;
-  --accent: #FFFFFF;
-  --accent-foreground: #08090C;
+  /* Pitch-Black & Gold Palette (Matching Reference) */
+  --background: #000000;
+  --foreground: #FFFFFF;
+  --surface: #0a0a0a;
+  --surface-raised: #121212;
+  --surface-overlay: #1a1a1a;
 
+  --border: #262626;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-active: #383838;
+  --border-focus: #EBB800;
+
+  --primary: #EBB800;
+  --primary-foreground: #000000;
+
+  --muted: #171717;
+  --muted-foreground: rgba(255, 255, 255, 0.6);
+  --subdued: rgba(255, 255, 255, 0.4);
+
+  --accent: #EBB800;
+  --accent-foreground: #000000;
+
+  /* Status Tokens */
   --danger: #EF4444;
   --danger-foreground: #FEE2E2;
   --danger-surface: rgba(239, 68, 68, 0.1);
@@ -29,14 +59,84 @@
   --success-foreground: #D1FAE5;
   --success-surface: rgba(16, 185, 129, 0.1);
 
-  --warning: #F59E0B;
-  --warning-foreground: #FEF3C7;
-  --warning-surface: rgba(245, 158, 11, 0.1);
+  --warning: #EBB800;
+  --warning-foreground: #000000;
+  --warning-surface: rgba(235, 184, 0, 0.12);
 
-  --radius: 0.625rem;
+  --info: #38BDF8;
+  --info-foreground: #E0F2FE;
+  --info-surface: rgba(56, 189, 248, 0.1);
+
+  --radius: 0.5rem;
 }
 
+/* Reference Chamfer Utilities */
+.chamfer-badge {
+  --poly-roundness: 6px;
+  clip-path: polygon(
+    var(--poly-roundness) 0,
+    calc(100% - var(--poly-roundness)) 0,
+    100% var(--poly-roundness),
+    100% calc(100% - var(--poly-roundness)),
+    calc(100% - var(--poly-roundness)) 100%,
+    var(--poly-roundness) 100%,
+    0 calc(100% - var(--poly-roundness)),
+    0 var(--poly-roundness)
+  );
+}
+
+.chamfer-button {
+  --poly-roundness: 16px;
+  clip-path: polygon(
+    var(--poly-roundness) 0,
+    calc(100% - var(--poly-roundness)) 0,
+    100% 0,
+    100% calc(100% - var(--poly-roundness)),
+    calc(100% - var(--poly-roundness)) 100%,
+    0 100%,
+    0 calc(100% - var(--poly-roundness)),
+    0 var(--poly-roundness)
+  );
+  box-shadow: inset 0 0 54px 0px #EBB800;
+}
+
+.chamfer-card {
+  --poly-roundness: 12px;
+  clip-path: polygon(
+    var(--poly-roundness) 0,
+    calc(100% - var(--poly-roundness)) 0,
+    100% var(--poly-roundness),
+    100% calc(100% - var(--poly-roundness)),
+    calc(100% - var(--poly-roundness)) 100%,
+    var(--poly-roundness) 100%,
+    0 calc(100% - var(--poly-roundness)),
+    0 var(--poly-roundness)
+  );
+}
+
+.shadow-glow {
+  box-shadow: 0 0 20px -3px var(--tw-shadow-color, rgba(235, 184, 0, 0.5));
+}
+
+#webgl {
+  top: 0;
+  left: 0;
+  position: fixed;
+  height: 100svh;
+  width: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+#webgl canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/* Hallmark Floor Rule 4: overflow-x: clip on both html and body */
+html,
 body {
+  overflow-x: clip;
   color: var(--foreground);
   background-color: var(--background);
   font-family: var(--font-sans);
@@ -44,19 +144,38 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Subtle background noise and grid */
+/* Hallmark Floor Rule 6: Instant focus-visible outline ring */
+:focus-visible {
+  outline: 2px solid var(--success);
+  outline-offset: 2px;
+}
+
+/* Tabular numerals for telemetry and metrics */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Subtle background technical grid */
 .bg-grid-pattern {
   background-size: 32px 32px;
   background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
 }
 
-.noise-overlay {
-  background-image: radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.05) 0%, transparent 60%);
+/* Hallmark Floor Rule 7: Strict Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
-/* Custom Scrollbar */
+/* Custom Telemetry Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

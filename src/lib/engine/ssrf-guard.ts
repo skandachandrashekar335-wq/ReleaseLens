@@ -15,13 +15,15 @@ const BLOCKED_IP_PATTERNS = [
   /^192\.168\./,                    // Private Class C (192.168.0.0/16)
   /^169\.254\./,                    // Link-local / AWS / GCP / Azure metadata (169.254.0.0/16)
   /^100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\./, // CGNAT (100.64.0.0/10)
-  /^0\./,                           // Current network
+  /^0\./,                           // Current network (0.0.0.0/8)
+  /^22[4-9]\.|^23[0-9]\./,          // Multicast (224.0.0.0/4)
+  /^240\./,                         // Reserved / Future use (240.0.0.0/4)
   /^::1$/,                          // IPv6 Loopback
   /^::$|^::0$/,                     // IPv6 Unspecified
   /^fe80:/i,                        // IPv6 Link-local
   /^fc00:/i,                        // IPv6 Unique local address
-  /^fd00:/i,                        // IPv6 Unique local address
-  /^::ffff:(127\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.|169\.254\.)/i, // IPv4-mapped IPv6
+  /^fd00:/i,                        // IPv6 Unique local address (including AWS fd00:ec2::254)
+  /^::ffff:(127\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.|169\.254\.|0\.|100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\.|22[4-9]\.|23[0-9]\.|240\.)/i, // IPv4-mapped IPv6
   /^255\.255\.255\.255$/,           // Broadcast
 ];
 
@@ -31,6 +33,8 @@ const BLOCKED_HOSTNAMES = [
   "169.254.169.254",
   "instance-data",
   "localhost.localdomain",
+  "ip6-localhost",
+  "ip6-loopback",
 ];
 
 const BLOCKED_EXTENSIONS = [
@@ -40,6 +44,7 @@ const BLOCKED_EXTENSIONS = [
   ".test",
   ".onion",
   ".lan",
+  ".home.arpa",
 ];
 
 export interface SsrfOptions {
@@ -67,14 +72,22 @@ export async function validateTargetUrl(
     return { isAllowed: false, reason: `Unsupported protocol: ${url.protocol}. Only HTTP and HTTPS are permitted.` };
   }
 
+  // 2. Reject embedded credentials / userinfo (user:password@host)
+  if (url.username || url.password) {
+    return {
+      isAllowed: false,
+      reason: "URLs with embedded userinfo credentials (user:password@host) are prohibited under SSRF perimeter policy.",
+    };
+  }
+
   const hostname = url.hostname.toLowerCase().trim();
 
-  // 2. Direct hostname blocklist
+  // 3. Direct hostname blocklist
   if (BLOCKED_HOSTNAMES.includes(hostname)) {
     return { isAllowed: false, reason: `Direct access to host '${hostname}' is prohibited (SSRF defense).` };
   }
 
-  // 3. Blocked domain suffixes
+  // 4. Blocked domain suffixes
   if (BLOCKED_EXTENSIONS.some((ext) => hostname.endsWith(ext))) {
     return { isAllowed: false, reason: `Domain suffix '${hostname}' belongs to a private or reserved network.` };
   }

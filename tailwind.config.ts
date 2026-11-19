@@ -18,6 +18,10 @@ const config: Config = {
         "border-subtle": "var(--border-subtle)",
         muted: "var(--muted)",
         "muted-foreground": "var(--muted-foreground)",
+        primary: {
+          DEFAULT: "#EBB800",
+          foreground: "#000000",
+        },
         accent: "var(--accent)",
         "accent-foreground": "var(--accent-foreground)",
         danger: {
@@ -39,6 +43,7 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
         display: ["var(--font-display)", "Georgia", "serif"],
+        sentient: ["var(--font-sentient)", "var(--font-display)", "Georgia", "serif"],
         mono: ["var(--font-mono)", "monospace"],
       },
       borderRadius: {

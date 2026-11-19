@@ -52,27 +52,27 @@ export function Modal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-background/80 backdrop-blur-sm transition-opacity animate-in fade-in"
+        className="fixed inset-0 bg-black/80 backdrop-blur-md transition-opacity animate-in fade-in"
         onClick={onClose}
       />
 
       {/* Modal Dialog */}
       <div
         className={cn(
-          "relative w-full rounded-2xl bg-surface border border-border p-6 shadow-2xl transition-all duration-200 z-10 animate-in zoom-in-95",
+          "relative w-full bg-[#0d0d0d] border border-border p-6 sm:p-8 shadow-2xl transition-all duration-200 z-10 animate-in zoom-in-95 font-mono text-xs",
           maxWidths[chosenWidth]
         )}
       >
         <div className="flex items-start justify-between pb-4 border-b border-border">
           <div>
-            <h2 className="text-lg font-semibold text-foreground tracking-tight">{title}</h2>
-            {description && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
+            <h2 className="text-xl font-display text-foreground tracking-tight">{title}</h2>
+            {description && <p className="text-xs font-mono text-foreground/50 mt-1">{description}</p>}
           </div>
           <button
             onClick={onClose}
-            className="rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-surface-raised transition-colors"
+            className="p-1.5 text-foreground/40 hover:text-foreground hover:bg-black transition-colors border border-transparent hover:border-border cursor-pointer"
           >
-            <X className="h-4 w-4" />
+            <X className="size-4" />
           </button>
         </div>
 

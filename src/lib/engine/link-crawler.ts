@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { AutomatedCheck } from "../types";
+import { validateTargetUrl } from "./ssrf-guard";
 
 export interface BrokenLink {
   url: string;
@@ -22,6 +23,48 @@ export interface LinkCrawlResult {
   score: number; // 0-100
 }
 
+/**
+ * Safe fetch wrapper that enforces manual redirect handling and validates every hop against SSRF perimeter
+ */
+export async function safeFetchWithSsrfRedirectGuard(
+  url: string,
+  options: RequestInit = {},
+  maxHops = 5
+): Promise<Response> {
+  let currentUrl = url;
+  let hops = 0;
+
+  while (hops <= maxHops) {
+    const ssrfCheck = await validateTargetUrl(currentUrl);
+    if (!ssrfCheck.isAllowed) {
+      throw new Error(`SSRF Block: Target '${currentUrl}' is prohibited (${ssrfCheck.reason})`);
+    }
+
+    const response = await fetch(currentUrl, {
+      ...options,
+      redirect: "manual",
+    });
+
+    // Check for HTTP redirect status codes (301, 302, 303, 307, 308)
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      const location = response.headers.get("location");
+      if (!location) {
+        return response; // No location header, return redirect response
+      }
+      hops++;
+      if (hops > maxHops) {
+        throw new Error(`SSRF Block: Maximum redirect hops (${maxHops}) exceeded for '${url}'`);
+      }
+      currentUrl = new URL(location, currentUrl).toString();
+      continue;
+    }
+
+    return response;
+  }
+
+  throw new Error(`SSRF Block: Maximum redirect hops (${maxHops}) exceeded`);
+}
+
 export async function crawlWebsiteLinks(
   targetUrl: string,
   auditRunId: string,
@@ -38,9 +81,9 @@ export async function crawlWebsiteLinks(
   let formsFound = 0;
   let totalLinksFound = 0;
 
-  // First fetch the root page
+  // First fetch the root page using safe redirect-validated fetcher
   try {
-    const rootRes = await fetch(targetUrl, {
+    const rootRes = await safeFetchWithSsrfRedirectGuard(targetUrl, {
       headers: {
         "User-Agent": "ReleaseLens-Crawler/1.0 (+https://releaselens.dev)",
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -161,7 +204,7 @@ export async function crawlWebsiteLinks(
       if (url === targetUrl) return; // Already checked root
 
       try {
-        const res = await fetch(url, {
+        const res = await safeFetchWithSsrfRedirectGuard(url, {
           method: "HEAD",
           headers: {
             "User-Agent": "ReleaseLens-Crawler/1.0 (+https://releaselens.dev)",

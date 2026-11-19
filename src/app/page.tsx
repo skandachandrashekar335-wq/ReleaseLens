@@ -4,20 +4,20 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Shield,
   ArrowRight,
+  ExternalLink,
+  ShieldCheck,
+  Cpu,
+  Layers,
   Sparkles,
-  CheckCircle2,
-  AlertTriangle,
-  RotateCcw,
   Terminal,
   Activity,
-  Layers,
-  FileText,
-  Lock,
-  ChevronRight,
+  CheckCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { Pill } from "@/components/pill";
+import { Card } from "@/components/ui/Card";
 import { RqiGauge } from "@/components/audit/RqiGauge";
 import { HardGateBadges } from "@/components/audit/HardGateBadges";
 import { RqiScore } from "@/lib/types";
@@ -26,8 +26,10 @@ export default function LandingPage() {
   const router = useRouter();
   const [targetUrl, setTargetUrl] = useState("");
   const [isAuditing, setIsAuditing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isHovering, setIsHovering] = useState(false);
 
-  // Demo interactive RQI score
+  // Representative telemetry RQI score
   const demoRqi: RqiScore = {
     overallScore: 78,
     coveragePercentage: 92,
@@ -41,33 +43,39 @@ export default function LandingPage() {
     reasons: [
       "Hard Gate 1 (Security): TLS certificate valid with 82 days remaining.",
       "Hard Gate 2 (Functional): Zero active CRITICAL defects.",
-      "Minor Anomaly: 2 broken links detected on footer navigation.",
+      "Minor Anomaly: 2 broken internal links detected.",
     ],
   };
 
   const handleLaunchInstantAudit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!targetUrl.trim()) return;
+    setErrorMsg(null);
+    const trimmed = targetUrl.trim();
+    if (!trimmed) return;
 
     try {
       setIsAuditing(true);
-      // Create project or redirect to demo with this target
+      const formattedUrl = trimmed.startsWith("http") ? trimmed : `https://${trimmed}`;
+
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: new URL(targetUrl.startsWith("http") ? targetUrl : `https://${targetUrl}`).hostname,
-          targetUrl: targetUrl.startsWith("http") ? targetUrl : `https://${targetUrl}`,
+          name: new URL(formattedUrl).hostname,
+          targetUrl: formattedUrl,
           environment: "PREVIEW",
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to register project");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to register audit target");
+      }
       const project = await res.json();
       router.push(`/projects/${project.id}`);
-    } catch (err) {
-      console.error(err);
-      // Fallback to demo
+    } catch (err: any) {
+      console.warn("Instant audit registration notice:", err.message);
+      // Fallback for unauthenticated instant audits: navigate to demo project
       router.push("/projects/proj_hackathon_demo");
     } finally {
       setIsAuditing(false);
@@ -75,136 +83,176 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="relative flex flex-col items-center justify-center overflow-hidden">
-      {/* Background ambient lighting and pattern */}
-      <div className="absolute inset-0 bg-grid-pattern opacity-40 pointer-events-none" />
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-emerald-500/10 blur-[130px] rounded-full pointer-events-none" />
+    <div className="relative flex flex-col items-center justify-center overflow-hidden bg-transparent text-foreground">
+      {/* Subtle background technical grid */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-25 pointer-events-none z-0" />
 
-      {/* Hero Section */}
-      <section className="relative w-full max-w-5xl mx-auto px-4 pt-20 pb-16 text-center space-y-8 z-10">
-        {/* Subtle pill tag */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-surface-raised border border-border text-xs font-mono text-muted-foreground shadow-sm">
-          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>ReleaseLens Architecture ADR-020 &amp; ADR-023 Compliant</span>
-        </div>
+      {/* Hero Section — 1:1 Matching v0 Reference Template */}
+      <section className="relative w-full max-w-4xl mx-auto px-4 pt-24 sm:pt-32 pb-16 text-center z-10 flex flex-col items-center">
+        <Pill className="mb-7">AUTONOMOUS QA PLATFORM</Pill>
 
-        {/* Headline */}
-        <div className="space-y-4">
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-foreground font-sans">
-            Confidence Before You Ship. <br />
-            <span className="bg-gradient-to-r from-emerald-400 via-teal-200 to-sky-400 bg-clip-text text-transparent">
-              Evidence-Backed Quality.
-            </span>
-          </h1>
-          <p className="max-w-2xl mx-auto text-sm sm:text-base text-muted-foreground leading-relaxed">
-            The cloud-hosted web application testing and bug discovery platform. Bounded automated quality
-            audits, structured human triage, and strict release-readiness gating.
-          </p>
-        </div>
+        {/* Display Heading with Sentient Font + Italic Accent */}
+        <h1 className="font-sentient text-5xl leading-[0.98] tracking-[-0.04em] sm:text-6xl md:text-8xl text-foreground">
+          Autonomous web
+          <br />
+          <span className="italic text-[#EAB308]">quality</span>{" "}
+          intelligence
+        </h1>
 
-        {/* Instant Audit Input Bar */}
-        <div className="max-w-xl mx-auto">
-          <form
-            onSubmit={handleLaunchInstantAudit}
-            className="p-1.5 rounded-2xl bg-surface/90 border border-border shadow-2xl backdrop-blur-md flex flex-col sm:flex-row items-center gap-2"
+        {/* Monospace Subtitle */}
+        <p className="mt-8 max-w-2xl text-balance font-mono text-sm leading-relaxed text-foreground/70 sm:text-base">
+          Deterministic release gating through bounded audits, evidence collection, and automated defect intelligence.
+        </p>
+
+        {/* Chamfered Instant Audit Launcher Bar */}
+        <form
+          onSubmit={handleLaunchInstantAudit}
+          className="mt-10 flex w-full max-w-2xl flex-col gap-2 border border-border bg-black/70 p-2 backdrop-blur-sm sm:h-16 sm:flex-row sm:items-center sm:gap-0 sm:p-1"
+        >
+          <label className="sr-only" htmlFor="audit-url">
+            URL to audit
+          </label>
+          <span className="px-3 font-mono text-sm text-foreground sm:shrink-0 sm:px-4 select-none">
+            https://
+          </span>
+          <input
+            id="audit-url"
+            name="url"
+            type="text"
+            inputMode="url"
+            placeholder="app-preview.vercel.app"
+            value={targetUrl.replace(/^https?:\/\//, "")}
+            onChange={(e) => setTargetUrl(e.target.value)}
+            className="min-w-0 flex-1 bg-transparent px-3 py-3 font-mono text-sm text-foreground outline-none placeholder:text-foreground/35 sm:py-0 focus-visible:outline-none"
+          />
+          <Button
+            type="submit"
+            variant="chamfer"
+            size="sm"
+            isLoading={isAuditing}
+            onMouseEnter={() => {
+              setIsHovering(true);
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(
+                  new CustomEvent("releaselens:audit-hover", { detail: { hovering: true } })
+                );
+              }
+            }}
+            onMouseLeave={() => {
+              setIsHovering(false);
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(
+                  new CustomEvent("releaselens:audit-hover", { detail: { hovering: false } })
+                );
+              }
+            }}
+            className="h-12 shrink-0 bg-[#EAB308] px-5 text-sm text-black shadow-[#EAB308] hover:bg-[#EAB308] hover:text-black sm:h-14 font-semibold"
           >
-            <div className="relative flex-1 w-full flex items-center">
-              <span className="absolute left-3.5 text-xs font-mono text-muted-foreground">https://</span>
-              <input
-                type="text"
-                placeholder="myapp-preview.vercel.app"
-                value={targetUrl.replace(/^https?:\/\//, "")}
-                onChange={(e) => setTargetUrl(e.target.value)}
-                className="w-full pl-20 pr-4 py-2.5 text-xs font-mono bg-transparent text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
-              />
-            </div>
-            <Button
-              type="submit"
-              variant="primary"
-              size="md"
-              isLoading={isAuditing}
-              className="w-full sm:w-auto shrink-0 shadow-md"
-            >
-              Run Audit <ArrowRight className="h-4 w-4 ml-1" />
-            </Button>
-          </form>
+            [RUN AUDIT]
+          </Button>
+        </form>
 
-          <div className="mt-3 flex items-center justify-center gap-6 text-[11px] font-mono text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="h-3 w-3 text-emerald-400" /> ₹0 Cloud Architecture
-            </span>
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="h-3 w-3 text-emerald-400" /> Zero Machine-Local Dependencies
-            </span>
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="h-3 w-3 text-emerald-400" /> Read-Only Evidence Grounding
-            </span>
-          </div>
+        {errorMsg && (
+          <p className="text-xs text-red-400 font-mono mt-3">{errorMsg}</p>
+        )}
+
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
+          {[
+            "FREE-TIER CLOUD ENGINE",
+            "SSRF GUARD PERIMETER",
+            "EVIDENCE GROUNDED",
+          ].map((feature) => (
+            <div
+              className="flex items-center gap-2 font-mono text-[0.65rem] tracking-[0.12em] text-foreground/65 sm:text-xs"
+              key={feature}
+            >
+              <span className="size-1.5 rounded-full bg-[#EAB308] shadow-[0_0_8px_2px_rgba(234,179,8,0.35)]" />
+              {feature}
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* Definitive Workflow Diagram */}
-      <section className="w-full max-w-6xl mx-auto px-4 py-12 z-10">
-        <div className="text-center mb-8">
-          <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
-            Core Operational Workflow
-          </h2>
-          <p className="text-xl font-semibold text-foreground mt-1">
-            Automate First, Human Review Second
-          </p>
+      {/* Explicit Three-Tier Execution Architecture */}
+      <section className="w-full max-w-5xl mx-auto px-4 py-16 z-10 border-t border-border">
+        <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between mb-8 gap-4">
+          <div>
+            <div className="text-[11px] font-mono uppercase tracking-wider text-primary mb-1">
+              Architecture Guarantee
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-display text-foreground">
+              Three-tier audit execution architecture
+            </h2>
+            <p className="text-xs font-mono text-foreground/60 mt-1 max-w-xl">
+              Strict capability demarcation: every check explicitly records whether it executed or was not run.
+            </p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono text-xs">
-          <div className="p-5 rounded-xl bg-surface border border-border space-y-2 relative overflow-hidden">
-            <div className="text-muted-foreground text-[10px] uppercase">Step 01</div>
-            <h3 className="font-semibold text-foreground text-sm">Automated Inspection</h3>
-            <p className="text-muted-foreground font-sans text-xs">
-              Crawler probes TLS certificate, strict security headers, and crawls up to 15 internal routes.
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 font-mono text-xs">
+          <Card chamfer className="space-y-3">
+            <div className="text-foreground/40 text-[10px] uppercase tracking-wider">Tier 01 // Lightweight</div>
+            <h3 className="font-semibold text-foreground text-sm font-mono tracking-tight text-primary">
+              LIGHTWEIGHT HTTP AUDIT
+            </h3>
+            <p className="text-foreground/60 text-xs leading-relaxed font-sans">
+              TLS certificate validation, strict security headers, and Cheerio internal route crawler (up to 15 bounded links).
             </p>
-            <div className="pt-2 text-[10px] text-emerald-400">Autonomous Cloud Execution</div>
-          </div>
+            <div className="pt-2 text-[10px] text-primary flex items-center gap-1.5">
+              <span className="size-1.5 rounded-full bg-primary" />
+              Cloud-Native Stateless
+            </div>
+          </Card>
 
-          <div className="p-5 rounded-xl bg-surface border border-border space-y-2 relative overflow-hidden">
-            <div className="text-muted-foreground text-[10px] uppercase">Step 02</div>
-            <h3 className="font-semibold text-foreground text-sm">Potential Findings</h3>
-            <p className="text-muted-foreground font-sans text-xs">
-              Every failure or anomaly is generated into a triage inbox in <code>NEEDS_REVIEW</code> status.
+          <Card chamfer className="space-y-3">
+            <div className="text-foreground/40 text-[10px] uppercase tracking-wider">Tier 02 // Telemetry</div>
+            <h3 className="font-semibold text-foreground text-sm font-mono tracking-tight text-primary">
+              SYNTHETIC PERFORMANCE
+            </h3>
+            <p className="text-foreground/60 text-xs leading-relaxed font-sans">
+              Core Web Vitals (LCP, CLS, INP) and Lighthouse measurements offloaded to Google PageSpeed Insights REST API.
             </p>
-            <div className="pt-2 text-[10px] text-cyan-400">Zero False Assumptions</div>
-          </div>
+            <div className="pt-2 text-[10px] text-primary flex items-center gap-1.5">
+              <span className="size-1.5 rounded-full bg-primary" />
+              PageSpeed REST Integration
+            </div>
+          </Card>
 
-          <div className="p-5 rounded-xl bg-surface border border-border space-y-2 relative overflow-hidden">
-            <div className="text-muted-foreground text-[10px] uppercase">Step 03</div>
-            <h3 className="font-semibold text-foreground text-sm">Human QA Triage</h3>
-            <p className="text-muted-foreground font-sans text-xs">
-              Testers validate evidence, confirm legitimate bugs, reject false positives, and adjust severity.
+          <Card chamfer className="space-y-3">
+            <div className="text-foreground/40 text-[10px] uppercase tracking-wider">Tier 03 // Exploration</div>
+            <h3 className="font-semibold text-foreground text-sm font-mono tracking-tight text-primary">
+              BROWSER INTERACTION
+            </h3>
+            <p className="text-foreground/60 text-xs leading-relaxed font-sans">
+              Real headless browser execution for client JavaScript rendering, unhandled console exceptions, and screenshot capture.
             </p>
-            <div className="pt-2 text-[10px] text-amber-400">Verified Defect Inventory</div>
-          </div>
-
-          <div className="p-5 rounded-xl bg-surface border border-border space-y-2 relative overflow-hidden">
-            <div className="text-muted-foreground text-[10px] uppercase">Step 04</div>
-            <h3 className="font-semibold text-foreground text-sm">Retest &amp; Release Verdict</h3>
-            <p className="text-muted-foreground font-sans text-xs">
-              Tripartite RQI engine computes release readiness and enforces strict Security and Functional hard gates.
-            </p>
-            <div className="pt-2 text-[10px] text-emerald-400">Non-Negotiable Gating</div>
-          </div>
+            <div className="pt-2 text-[10px] text-amber-400 flex items-center gap-1.5">
+              <span className="size-1.5 rounded-full bg-amber-400" />
+              Dedicated Browser Worker
+            </div>
+          </Card>
         </div>
       </section>
 
       {/* Interactive Telemetry Preview: RQI Gauge & Gates */}
-      <section className="w-full max-w-5xl mx-auto px-4 py-12 z-10 space-y-8">
+      <section className="w-full max-w-5xl mx-auto px-4 py-16 z-10 border-t border-border space-y-8">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <span className="text-xs font-mono uppercase text-muted-foreground">Interactive Demo</span>
-            <h2 className="text-2xl font-bold text-foreground">Live Telemetry &amp; RQI Engine</h2>
+            <div className="text-[11px] font-mono uppercase tracking-wider text-primary mb-1">
+              Ungameable Governance
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-display text-foreground">
+              Tripartite Release Quality Index (RQI)
+            </h2>
+            <p className="text-xs font-mono text-foreground/60 mt-1">
+              Governed by two independent Hard Gates: any critical security or confirmed defect failure blocks release.
+            </p>
           </div>
           <Link
             href="/projects/proj_hackathon_demo"
-            className="inline-flex items-center gap-1.5 text-xs font-mono text-emerald-400 hover:text-emerald-300 underline underline-offset-4"
+            className="inline-flex items-center gap-1.5 text-xs font-mono text-primary hover:text-primary/80 uppercase tracking-wider"
           >
-            Explore Full Demo Project <ChevronRight className="h-3.5 w-3.5" />
+            Explore Interactive Demo <ExternalLink className="size-3" />
           </Link>
         </div>
 
@@ -222,64 +270,53 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Comparison: ReleaseLens vs Scan-Only Tools */}
-      <section className="w-full max-w-5xl mx-auto px-4 py-16 z-10 border-t border-border/60">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <h2 className="text-2xl font-bold text-foreground">Why ReleaseLens?</h2>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-2">
-            ReleaseLens is NOT merely a PageSpeed or synthetic scanner. It unifies automated discovery with
-            exploratory QA testing and developer release governance.
+      {/* Dual Reporting Engine Comparison */}
+      <section className="w-full max-w-5xl mx-auto px-4 py-16 z-10 border-t border-border">
+        <div className="text-left mb-8">
+          <div className="text-[11px] font-mono uppercase tracking-wider text-primary mb-1">
+            Zero False Positives
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-display text-foreground">
+            Dual reporting separation
+          </h2>
+          <p className="text-xs font-mono text-foreground/60 mt-1">
+            Never conflate raw machine findings with human-confirmed bugs.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-mono text-xs">
-          <div className="p-6 rounded-2xl bg-surface border border-border space-y-4">
-            <div className="text-red-400 font-semibold text-sm uppercase">Ordinary Scanners</div>
-            <ul className="space-y-2.5 text-muted-foreground">
-              <li className="flex items-center gap-2">
-                <span className="text-red-400 font-bold">×</span> Swallows false positives without review
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-red-400 font-bold">×</span> High performance score masks broken login buttons
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-red-400 font-bold">×</span> No tester bug reproduction steps or handoff
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-red-400 font-bold">×</span> Requires heavy local headless browser infrastructure
-              </li>
-            </ul>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+          <div className="p-6 bg-[#0d0d0d] border border-border space-y-3">
+            <div className="text-[10px] font-mono uppercase text-foreground/40">Report Stream 01</div>
+            <h3 className="text-base font-mono font-bold text-foreground uppercase tracking-wide">
+              Technical Audit Report
+            </h3>
+            <p className="text-foreground/60 text-xs leading-relaxed font-sans">
+              Exhaustive machine telemetry for QA and SecOps. Records executed checks, check latencies, HTTP headers, TLS expiration, Core Web Vitals, and potential findings pending triage.
+            </p>
+            <div className="pt-2 text-[11px] font-mono text-foreground/50 uppercase tracking-wider">
+              Audience: Test Engineers &amp; Security Compliance
+            </div>
           </div>
 
-          <div className="p-6 rounded-2xl bg-surface border border-emerald-500/30 space-y-4">
-            <div className="text-emerald-400 font-semibold text-sm uppercase">ReleaseLens Platform</div>
-            <ul className="space-y-2.5 text-foreground/90">
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                Human Triage Inbox for all automated findings
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                Hard Security &amp; Functional Gates block release if broken
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                Structured Bug Lifecycle (`OPEN` $\to$ `FIXED` $\to$ `VERIFIED`)
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                ₹0 Serverless Cloud Architecture, Zero Local Setup
-              </li>
-            </ul>
+          <div className="p-6 bg-[#0d0d0d] border border-primary/40 space-y-3 [box-shadow:inset_0_0_20px_rgba(235,184,0,0.06)]">
+            <div className="text-[10px] font-mono uppercase text-primary">Report Stream 02</div>
+            <h3 className="text-base font-mono font-bold text-primary uppercase tracking-wide">
+              Human-Reviewed Defect Report
+            </h3>
+            <p className="text-foreground/80 text-xs leading-relaxed font-sans">
+              Zero noise. Contains ONLY verified defects with assigned severity, reproduction steps, developer handoff links, and retest verification history.
+            </p>
+            <div className="pt-2 text-[11px] font-mono text-primary uppercase tracking-wider">
+              Audience: Feature Developers &amp; Release Managers
+            </div>
           </div>
         </div>
 
         <div className="mt-12 text-center">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-foreground text-background font-semibold text-sm hover:bg-foreground/90 transition-all shadow-lg"
-          >
-            <Sparkles className="h-4 w-4" /> Enter ReleaseLens Workspace
+          <Link href="/dashboard">
+            <Button variant="chamfer" size="lg" className="h-14 px-8 text-sm">
+              [ENTER WORKSPACE DASHBOARD]
+            </Button>
           </Link>
         </div>
       </section>

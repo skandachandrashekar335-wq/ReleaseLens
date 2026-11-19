@@ -1,4 +1,4 @@
-import { AuditRun, AutomatedCheck, BugReport, EnvironmentType } from "../types";
+import { AuditRun, AutomatedCheck, BugReport, EnvironmentType, AuditExecutionTier, AuditStatus } from "../types";
 import { inspectTlsCertificate } from "./tls-inspector";
 import { inspectSecurityHeaders } from "./security-headers";
 import { crawlWebsiteLinks } from "./link-crawler";
@@ -13,6 +13,7 @@ export interface ExecuteAuditOptions {
   targetUrl: string;
   environment: EnvironmentType;
   auditTier?: "TIER_1_PUBLIC" | "TIER_2_VERIFIED";
+  auditMode?: "SYNTHETIC" | "BROWSER" | "FULL" | string;
   existingConfirmedBugs?: BugReport[];
   skipBrowserWorker?: boolean;
 }
@@ -29,8 +30,10 @@ export async function executeAutomatedAudit(options: ExecuteAuditOptions): Promi
 
   const auditRunId = `run_${Date.now()}_${crypto.randomUUID().substring(0, 8)}`;
   const startedAt = new Date().toISOString();
+  const tiersExecuted: AuditExecutionTier[] = [];
+  const executionLimitations: string[] = [];
 
-  // 1. SSRF & Protocol Validation
+  // 1. SSRF & Protocol Perimeter Guard (Must precede any network connection)
   const ssrfCheck = await validateTargetUrl(targetUrl);
   if (!ssrfCheck.isAllowed) {
     const completedAt = new Date().toISOString();
@@ -84,6 +87,9 @@ export async function executeAutomatedAudit(options: ExecuteAuditOptions): Promi
       environment,
       auditTier,
       status: "FAILED",
+      executionTier: "TIER_1_HTTP",
+      tiersExecuted: [],
+      executionLimitations: [`Audit aborted by security perimeter: ${ssrfCheck.reason}`],
       startedAt,
       completedAt,
       checks,
@@ -93,72 +99,172 @@ export async function executeAutomatedAudit(options: ExecuteAuditOptions): Promi
     };
   }
 
-  // 2. Run TLS Socket Inspection (Independent socket connection)
-  const tlsResult = await inspectTlsCertificate(targetUrl, auditRunId);
-
-  // 3. Run Security Headers & Clickjacking Probe
-  const secResult = await inspectSecurityHeaders(targetUrl, auditRunId);
-
-  // 4. Run Autonomous Playwright Browser Execution (Real JS execution, DOM, console errors, screenshot)
-  let browserResult: BrowserExecutionResult | undefined;
-  if (!skipBrowserWorker) {
-    try {
-      const worker = new PlaywrightBrowserWorker();
-      browserResult = await worker.execute({
-        targetUrl,
-        auditRunId,
-        projectId,
-        timeoutMs: 15000,
-      });
-    } catch (err: any) {
-      console.warn("Playwright browser worker fallback:", err.message);
-    }
-  }
-
-  // 5. Run Link Crawler (Traverses internal routes)
-  const linkResult = await crawlWebsiteLinks(targetUrl, auditRunId, 15);
-
-  // 6. Run PageSpeed Vitals & Core Web Vitals
-  const pageSpeedResult = await runPageSpeedAudit(targetUrl, auditRunId);
-
-  // Aggregate all checks
-  const checks: AutomatedCheck[] = [
-    tlsResult.check,
-    ...secResult.checks,
-    ...(browserResult?.checks || []),
-    ...linkResult.checks,
-    ...pageSpeedResult.checks,
+  // 2. Parallel Probes: Tier 1 (Lightweight HTTP) and Tier 2 (Performance API)
+  const [tlsPromise, secPromise, linkPromise, pageSpeedPromise] = [
+    inspectTlsCertificate(targetUrl, auditRunId),
+    inspectSecurityHeaders(targetUrl, auditRunId),
+    crawlWebsiteLinks(targetUrl, auditRunId, 15),
+    runPageSpeedAudit(targetUrl, auditRunId),
   ];
 
-  // 7. Generate Potential Findings
+  // Optional Tier 3: Browser Interaction Worker
+  const isServerlessCloud = process.env.VERCEL === "1" || process.env.AWS_LAMBDA_FUNCTION_NAME !== undefined;
+  const shouldRunBrowser = !skipBrowserWorker && !isServerlessCloud;
+
+  let browserPromise: Promise<BrowserExecutionResult | null>;
+  if (shouldRunBrowser) {
+    const worker = new PlaywrightBrowserWorker();
+    browserPromise = worker.execute({
+      targetUrl,
+      auditRunId,
+      projectId,
+      timeoutMs: 15000,
+    }).catch((err) => {
+      console.warn("Playwright browser worker unavailable in this runtime:", err.message);
+      return null;
+    });
+  } else {
+    browserPromise = Promise.resolve(null);
+  }
+
+  // Execute probes concurrently via Promise.allSettled
+  const [tlsSettled, secSettled, linkSettled, pageSpeedSettled, browserSettled] = await Promise.allSettled([
+    tlsPromise,
+    secPromise,
+    linkPromise,
+    pageSpeedPromise,
+    browserPromise,
+  ]);
+
+  const checks: AutomatedCheck[] = [];
+  let tlsDaysRemaining = 90;
+  let httpsEnforced = false;
+  let clickjackingProtected = false;
+
+  // Process Tier 1 (TLS, Security Headers, Link Crawler)
+  if (tlsSettled.status === "fulfilled") {
+    checks.push(tlsSettled.value.check);
+    tlsDaysRemaining = tlsSettled.value.daysRemaining;
+  } else {
+    checks.push({
+      id: `check_tls_err_${Date.now()}`,
+      auditRunId,
+      category: "TLS",
+      name: "TLS Certificate Validity",
+      status: "INCONCLUSIVE",
+      errorMessage: `TLS inspection failed: ${tlsSettled.reason?.message || "Unknown error"}`,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  if (secSettled.status === "fulfilled") {
+    checks.push(...secSettled.value.checks);
+    httpsEnforced = secSettled.value.httpsEnforced;
+    clickjackingProtected = secSettled.value.clickjackingProtected;
+  } else {
+    checks.push({
+      id: `check_sec_err_${Date.now()}`,
+      auditRunId,
+      category: "HEADERS",
+      name: "Security Headers Audit",
+      status: "INCONCLUSIVE",
+      errorMessage: `Security headers inspection failed: ${secSettled.reason?.message || "Unknown error"}`,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  let brokenLinks: any[] = [];
+  if (linkSettled.status === "fulfilled") {
+    checks.push(...linkSettled.value.checks);
+    brokenLinks = linkSettled.value.stats.brokenLinks;
+    tiersExecuted.push("TIER_1_HTTP");
+  } else {
+    checks.push({
+      id: `check_link_err_${Date.now()}`,
+      auditRunId,
+      category: "BROKEN_LINKS",
+      name: "Internal Route Reachability",
+      status: "INCONCLUSIVE",
+      errorMessage: `Link crawler failed: ${linkSettled.reason?.message || "Unknown error"}`,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  // Process Tier 2 (Performance Audit via PageSpeed Insights)
+  if (pageSpeedSettled.status === "fulfilled") {
+    checks.push(...pageSpeedSettled.value.checks);
+    tiersExecuted.push("TIER_2_PERF");
+  } else {
+    checks.push({
+      id: `check_perf_err_${Date.now()}`,
+      auditRunId,
+      category: "PAGESPEED",
+      name: "Core Web Vitals & Synthetic Performance",
+      status: "NOT_RUN",
+      errorMessage: `PageSpeed performance audit unavailable: ${pageSpeedSettled.reason?.message || "Provider error"}`,
+      timestamp: new Date().toISOString(),
+    });
+    executionLimitations.push("Tier 2 PageSpeed API call timed out or provider key was unavailable; performance checks marked NOT_RUN.");
+  }
+
+  // Process Tier 3 (Browser Interaction Audit)
+  let browserResult: BrowserExecutionResult | undefined;
+  if (browserSettled.status === "fulfilled" && browserSettled.value) {
+    browserResult = browserSettled.value;
+    checks.push(...(browserResult.checks || []));
+    tiersExecuted.push("TIER_3_BROWSER");
+  } else {
+    // Explicitly record Tier 3 as NOT_RUN rather than faking or silently passing
+    checks.push({
+      id: `check_tier3_browser_${Date.now()}`,
+      auditRunId,
+      category: "AVAILABILITY",
+      dimension: "interactive",
+      name: "Tier 3 Browser Interaction Audit",
+      checkName: "Tier 3 Browser Interaction Audit",
+      status: "NOT_RUN",
+      score: 0,
+      summary: "Browser interaction audit (Playwright Chromium) was not executed in this runtime environment.",
+      rawEvidence: {
+        reason: isServerlessCloud
+          ? "Serverless cloud execution limit (Hobby plan): Cloud container browser worker required for Tier 3."
+          : "Local headless browser binary not installed or execution skipped.",
+      },
+      timestamp: new Date().toISOString(),
+    });
+    executionLimitations.push("Tier 3 Browser Interaction Audit not executed: genuine cloud browser worker required for deployed production runs.");
+  }
+
+  // 3. Generate Potential Findings
   const baselineFindings = generatePotentialFindings(
     auditRunId,
     projectId,
     targetUrl,
     checks,
-    linkResult.stats.brokenLinks,
-    secResult.missingHeaders,
-    tlsResult.daysRemaining
+    brokenLinks,
+    secSettled.status === "fulfilled" ? secSettled.value.missingHeaders : [],
+    tlsDaysRemaining
   );
 
-  // Merge browser-specific findings (console exceptions, network 4xx/5xx, form defects)
   const findings = [
     ...baselineFindings,
     ...(browserResult?.findings || []),
   ];
 
-  // 8. Compute Tripartite RQI Score (ADR-020 & ADR-023)
+  // 4. Compute Tripartite RQI Score (ADR-020 & ADR-023)
   const rqiScore = calculateRqiScore({
     auditRunId,
     checks,
     findings,
     confirmedBugs: existingConfirmedBugs,
-    tlsDaysRemaining: tlsResult.daysRemaining,
-    httpsEnforced: secResult.httpsEnforced,
-    clickjackingProtected: secResult.clickjackingProtected,
+    tlsDaysRemaining,
+    httpsEnforced,
+    clickjackingProtected,
   });
 
   const completedAt = new Date().toISOString();
+  const requestedTier3 = !options.skipBrowserWorker && options.auditMode !== "SYNTHETIC";
+  const overallStatus: AuditStatus = (!requestedTier3 || tiersExecuted.includes("TIER_3_BROWSER")) ? "COMPLETED" : "PARTIAL";
 
   const auditRun: AuditRun & { browserResult?: BrowserExecutionResult } = {
     id: auditRunId,
@@ -166,13 +272,16 @@ export async function executeAutomatedAudit(options: ExecuteAuditOptions): Promi
     targetUrl,
     environment,
     auditTier,
-    status: "COMPLETED",
+    status: overallStatus,
+    executionTier: tiersExecuted.includes("TIER_3_BROWSER") ? "TIER_3_BROWSER" : "TIER_2_PERF",
+    tiersExecuted,
+    executionLimitations,
     startedAt,
     completedAt,
     checks,
     findings,
     rqiScore,
-    summary: `Audit completed in ${Math.round((new Date(completedAt).getTime() - new Date(startedAt).getTime()) / 1000)}s. Quality: ${rqiScore.qualityScore}/100, Coverage: ${rqiScore.coveragePercent}%. Found ${findings.length} potential finding(s).`,
+    summary: `Audit finished (${overallStatus}) in ${Math.round((new Date(completedAt).getTime() - new Date(startedAt).getTime()) / 1000)}s. Tiers executed: [${tiersExecuted.join(", ")}]. Quality: ${rqiScore.qualityScore}/100, Coverage: ${rqiScore.coveragePercent}%. Found ${findings.length} potential finding(s).`,
     browserResult,
   };
 
