@@ -21,9 +21,12 @@ export function Navbar() {
 
   useEffect(() => {
     fetch("/api/auth/session")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json().catch(() => null);
+      })
       .then((data) => {
-        if (data.user) setUser(data.user);
+        if (data?.user) setUser(data.user);
       })
       .catch(() => {});
   }, []);

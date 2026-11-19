@@ -74,14 +74,40 @@ export class PersistentDataStore implements IDataStore {
   private dbPath: string;
 
   constructor(dbPath = "./data/releaselens.db") {
+    // In serverless environments (Vercel, AWS Lambda) the current directory is read-only.
+    // Automatically redirect local relative paths to /tmp
+    const isServerless = Boolean(
+      process.env.VERCEL ||
+      process.env.AWS_LAMBDA_FUNCTION_NAME ||
+      process.env.LAMBDA_TASK_ROOT
+    );
+
+    if (isServerless && (dbPath.startsWith("./") || !path.isAbsolute(dbPath))) {
+      dbPath = path.join("/tmp", path.basename(dbPath));
+    }
+
     this.dbPath = dbPath;
     if (dbPath !== ":memory:") {
-      const dir = path.dirname(path.resolve(dbPath));
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+      try {
+        const dir = path.dirname(path.resolve(dbPath));
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+      } catch (err) {
+        console.warn(`[db-adapter] Could not create directory for SQLite at ${dbPath}, falling back to /tmp/releaselens.db:`, err);
+        dbPath = "/tmp/releaselens.db";
+        this.dbPath = dbPath;
       }
     }
-    this.db = new DatabaseSync(dbPath);
+
+    try {
+      this.db = new DatabaseSync(dbPath);
+    } catch (openErr) {
+      console.warn(`[db-adapter] Failed to open SQLite at ${dbPath}, falling back to in-memory:`, openErr);
+      this.dbPath = ":memory:";
+      this.db = new DatabaseSync(":memory:");
+    }
+
     this.initSchema();
     this.seedDefaultData();
   }
@@ -837,10 +863,17 @@ export function createDataStore(): IDataStore {
     return new SupabaseDataStore(supabaseUrl, supabaseKey);
   }
 
+  const defaultPath =
+    process.env.VERCEL ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.LAMBDA_TASK_ROOT
+      ? "/tmp/releaselens.db"
+      : "./data/releaselens.db";
+
   return new PersistentDataStore(
     process.env.DATABASE_URL?.startsWith("file:")
       ? process.env.DATABASE_URL.replace("file:", "")
-      : "./data/releaselens.db"
+      : defaultPath
   );
 }
 

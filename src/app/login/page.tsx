@@ -42,9 +42,12 @@ export default function LoginPage() {
       });
 
     fetch("/api/auth/session")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) return { isAuthenticated: false };
+        return res.json().catch(() => ({ isAuthenticated: false }));
+      })
       .then((data) => {
-        if (data.isAuthenticated) {
+        if (data?.isAuthenticated) {
           router.push("/dashboard");
         }
       })
@@ -76,9 +79,17 @@ export default function LoginPage() {
         body: JSON.stringify({ idToken }),
       });
 
-      const data = await res.json();
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        // Non-JSON response (e.g. server error page)
+      }
+
       if (!res.ok) {
-        throw new Error(data.error || "Failed to establish authenticated session");
+        throw new Error(
+          data?.error || `Server returned error (${res.status}) while establishing session.`
+        );
       }
 
       router.push("/dashboard");
