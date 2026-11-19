@@ -10,6 +10,14 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  async rewrites() {
+    return [
+      {
+        source: "/__cookies__",
+        destination: "/api/cookies",
+      },
+    ];
+  },
   async headers() {
     const csp = [
       "default-src 'self'",
@@ -17,7 +25,7 @@ const nextConfig: NextConfig = {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
-      "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.firebaseio.com https://*.googleapis.com https://*.supabase.co wss://*.supabase.co",
+      "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.firebaseapp.com https://*.firebaseio.com https://*.googleapis.com https://*.supabase.co wss://*.supabase.co",
       "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com",
       "worker-src 'self' blob:",
       "object-src 'none'",

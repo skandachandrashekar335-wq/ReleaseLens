@@ -95,7 +95,19 @@ export default function LoginPage() {
       router.push("/dashboard");
     } catch (err: any) {
       console.error("Sign-in failed:", err);
-      setErrorMessage(err.message || "Authentication failed. Please try again.");
+      let friendly = err.message || "Authentication failed. Please try again.";
+      if (err.code === "auth/unauthorized-domain") {
+        friendly =
+          "This domain is not authorized in Firebase Console. Please add your current domain under Firebase Authentication > Settings > Authorized domains.";
+      } else if (
+        friendly.includes("<!DOCTYPE") ||
+        friendly.includes("Unexpected token '<'") ||
+        friendly.includes("is not valid JSON")
+      ) {
+        friendly =
+          "Authentication service returned an unexpected HTML response. Please ensure popups and third-party cookies are enabled, and verify authorized domains in Firebase Console.";
+      }
+      setErrorMessage(friendly);
     } finally {
       setIsLoading(false);
     }

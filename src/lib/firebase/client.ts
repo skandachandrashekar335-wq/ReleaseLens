@@ -1,6 +1,11 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import {
   getAuth,
+  initializeAuth,
+  browserLocalPersistence,
+  indexedDBLocalPersistence,
+  inMemoryPersistence,
+  browserPopupRedirectResolver,
   GoogleAuthProvider,
   signInWithPopup,
   signInWithRedirect,
@@ -38,10 +43,26 @@ export function getFirebaseApp(): FirebaseApp | null {
   return initializeApp(firebaseClientConfig);
 }
 
+let cachedAuth: Auth | null = null;
+
 export function getFirebaseAuth(): Auth | null {
+  if (cachedAuth) return cachedAuth;
   const app = getFirebaseApp();
   if (!app) return null;
-  return getAuth(app);
+
+  try {
+    cachedAuth = initializeAuth(app, {
+      persistence: [
+        indexedDBLocalPersistence,
+        browserLocalPersistence,
+        inMemoryPersistence,
+      ],
+      popupRedirectResolver: browserPopupRedirectResolver,
+    });
+  } catch {
+    cachedAuth = getAuth(app);
+  }
+  return cachedAuth;
 }
 
 export async function getFirebaseAnalytics() {
