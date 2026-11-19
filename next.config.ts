@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ["three"],
+  serverExternalPackages: ["firebase-admin", "jwks-rsa"],
   eslint: {
     ignoreDuringBuilds: true,
   },
