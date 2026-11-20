@@ -125,8 +125,13 @@ export async function signInWithGoogle(options?: { useRedirect?: boolean }): Pro
     };
   } catch (popupError: any) {
     // If popup was blocked by browser or environment, attempt automatic fallback to signInWithRedirect
-    if (popupError?.code === "auth/popup-blocked") {
-      console.warn("Popup blocked by browser. Falling back to signInWithRedirect...");
+    const isDocTypeOrJsonError =
+      popupError?.message?.includes("<!DOCTYPE") ||
+      popupError?.message?.includes("Unexpected token '<'") ||
+      popupError?.message?.includes("is not valid JSON");
+
+    if (popupError?.code === "auth/popup-blocked" || isDocTypeOrJsonError) {
+      console.warn("Popup blocked or encountered cross-origin token parse error. Falling back to signInWithRedirect...");
       await signInWithRedirect(auth, provider);
       return null;
     }

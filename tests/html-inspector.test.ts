@@ -6,7 +6,7 @@ describe("HTML DOM & Accessibility Inspector", () => {
   beforeEach(() => {
     vi.spyOn(ssrfModule, "validateTargetUrl").mockResolvedValue({
       isAllowed: true,
-      sanitizedUrl: "https://example.com",
+      resolvedIp: "93.184.216.34",
     });
   });
   it("detects missing title, meta description, lang attribute, and unlabeled inputs", async () => {

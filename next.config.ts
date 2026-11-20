@@ -11,12 +11,20 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
   async rewrites() {
-    return [
-      {
-        source: "/__cookies__",
-        destination: "/api/cookies",
-      },
-    ];
+    return {
+      beforeFiles: [
+        {
+          source: "/__/auth/:path*",
+          destination: `https://${process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "releaselens-5ff4f.firebaseapp.com"}/__/auth/:path*`,
+        },
+      ],
+      afterFiles: [
+        {
+          source: "/__cookies__",
+          destination: "/api/cookies",
+        },
+      ],
+    };
   },
   async headers() {
     const csp = [

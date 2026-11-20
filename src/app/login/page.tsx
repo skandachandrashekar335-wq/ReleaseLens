@@ -57,7 +57,7 @@ export default function LoginPage() {
       .catch(() => {});
   }, [router]);
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = async (useRedirect = false) => {
     setErrorMessage(null);
     setIsLoading(true);
 
@@ -68,7 +68,7 @@ export default function LoginPage() {
         );
       }
 
-      const authResult = await signInWithGoogle();
+      const authResult = await signInWithGoogle({ useRedirect });
       if (!authResult) {
         // Returned null because redirect was initiated
         return;
@@ -102,17 +102,20 @@ export default function LoginPage() {
       router.push("/dashboard");
     } catch (err: any) {
       console.error("Sign-in failed:", err);
-      let friendly = err.message || "Authentication failed. Please try again.";
+      const rawMsg = String(err?.message || err || "");
+      let friendly = rawMsg || "Authentication failed. Please try again.";
+
       if (err.code === "auth/unauthorized-domain") {
         friendly =
           "This domain is not authorized in Firebase Console. Please add your current domain under Firebase Authentication > Settings > Authorized domains.";
       } else if (
-        friendly.includes("<!DOCTYPE") ||
-        friendly.includes("Unexpected token '<'") ||
-        friendly.includes("is not valid JSON")
+        rawMsg.includes("<!DOCTYPE") ||
+        rawMsg.includes("Unexpected token '<'") ||
+        rawMsg.includes("is not valid JSON") ||
+        rawMsg.includes("SyntaxError")
       ) {
         friendly =
-          "Authentication service returned an unexpected HTML response. Please ensure popups and third-party cookies are enabled, and verify authorized domains in Firebase Console.";
+          "Browser popup blocked or received unexpected HTML response from auth provider. Click below to sign in using full-page redirect, or ensure authorized domains in Firebase Console include this URL.";
       }
       setErrorMessage(friendly);
     } finally {
@@ -136,12 +139,24 @@ export default function LoginPage() {
         </div>
 
         {errorMessage && (
-          <div className="p-3 bg-red-500/10 border border-red-500/30 text-xs text-red-400 flex items-start gap-2.5 font-mono">
-            <AlertCircle className="size-4 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <p className="font-semibold uppercase tracking-wider text-[11px]">Authentication Error</p>
-              <p className="opacity-90">{errorMessage}</p>
+          <div className="p-3 bg-red-500/10 border border-red-500/30 text-xs text-red-400 space-y-2 font-mono">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="size-4 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-semibold uppercase tracking-wider text-[11px]">Authentication Error</p>
+                <p className="opacity-90 leading-relaxed">{errorMessage}</p>
+              </div>
             </div>
+            {errorMessage.includes("redirect") && (
+              <Button
+                onClick={() => handleGoogleSignIn(true)}
+                isLoading={isLoading}
+                variant="chamfer"
+                className="w-full justify-center text-[11px] h-9 bg-red-500/20 hover:bg-red-500/30 text-red-200 border-red-500/40 mt-1"
+              >
+                [SIGN IN USING REDIRECT]
+              </Button>
+            )}
           </div>
         )}
 
@@ -160,7 +175,7 @@ export default function LoginPage() {
 
         <div className="space-y-4 pt-2">
           <Button
-            onClick={handleGoogleSignIn}
+            onClick={() => handleGoogleSignIn(false)}
             isLoading={isLoading}
             variant="chamfer"
             className="w-full justify-center gap-3 h-12 text-xs"
