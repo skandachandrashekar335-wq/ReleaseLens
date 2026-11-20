@@ -338,6 +338,18 @@ All non-audit code paths that write rows into `users`, `sessions`, `projects`, `
      ```
   4. The audit pipeline's generator `src/lib/engine/findings-generator.ts:117-135` emits finding title `"Severe Mobile Performance Degradation (Lighthouse < 50)"` when performance score is under 50; it never generates the title string `"Largest Contentful Paint (LCP) Exceeds Recommended 2.5s Budget"`.
 
+### 2.5 Permanent Elimination of Synthetic Demo Seeds & Hardcoded Tokens (v0.9.1 / ADR-033)
+
+- **Status**: `RESOLVED` / `IMPLEMENTED` / `TESTED`
+- **Actions Taken**:
+  1. `seedDefaultData()` was removed completely from `src/lib/store/db-adapter.ts`. SQLite cold starts no longer populate `user_demo_1` or `proj_hackathon_demo`.
+  2. All special-case `proj_hackathon_demo` read/write bypasses in `/api/projects/[id]`, `/api/projects/[id]/audit`, `/api/findings`, `/api/bugs`, `/api/bugs/[id]`, `/api/bugs/[id]/retest`, `/api/assistant/chat`, and `/api/reports/share` were permanently eradicated.
+  3. Strict tenant ownership (`project.userId === auth.user.id`) is enforced across all authenticated API endpoints. Unauthenticated requests return `401 Unauthorized`; foreign resource requests return `403 Forbidden`.
+  4. Client `signInWithGoogle` and server `POST /api/auth/session` now employ defensive response headers inspection (`res.headers.get("content-type")?.includes("application/json")`), eliminating `SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON`.
+  5. Built dedicated `POST /api/auth/logout` endpoint in `src/app/api/auth/logout/route.ts` that invalidates the database session and clears cookies with `Max-Age: 0`.
+  6. Implemented live Cheerio-based HTML DOM & Accessibility inspector (`src/lib/engine/html-inspector.ts`) wired into Tier 1 probes in `src/lib/engine/audit-runner.ts`.
+  7. Automated test suite expanded to 84 tests across 17 suites (including `tests/html-inspector.test.ts` and `tests/auth-lifecycle.test.ts`), with 100% passing.
+
 ---
 
 ## 3. Real Behaviour

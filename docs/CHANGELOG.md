@@ -4,6 +4,43 @@ All notable changes to the ReleaseLens project are documented in this file in ad
 
 ---
 
+## [0.9.1] - 2026-11-20 — Synthetic Data Elimination, Dedicated Session Invalidation, HTML DOM Inspector & Strict Tenant Isolation
+
+### Added & Hardened
+- **Permanent Removal of Auto-Seeded Synthetic Data (`src/lib/store/db-adapter.ts`)**:
+  - Removed `seedDefaultData()` completely. Database cold starts no longer inject `proj_hackathon_demo`, `user_demo_1`, or `bug_sample_auth_1`.
+  - All new Gmail user sign-ins receive a guaranteed clean, empty profile (`projects: []`, `runs: []`, `findings: []`).
+- **Complete Elimination of Demo Bypasses & Strict Multi-Tenant Enforcement**:
+  - Stripped all `proj_hackathon_demo` special-cased read/write exceptions across all API endpoints:
+    - `src/app/api/projects/[id]/route.ts`: Enforces `project.userId === auth.user.id`.
+    - `src/app/api/projects/[id]/audit/route.ts`: Enforces owner-only audit execution.
+    - `src/app/api/findings/route.ts` & `src/app/api/findings/[id]/route.ts`: Owner-only triage.
+    - `src/app/api/bugs/route.ts`, `src/app/api/bugs/[id]/route.ts`, `src/app/api/bugs/[id]/retest/route.ts`: Owner-only defect management.
+    - `src/app/api/assistant/chat/route.ts`: Strict session and tenant isolation for AI copilot queries.
+    - `src/app/api/reports/share/route.ts`: Share token generation restricted to verified project owner.
+- **Dedicated Invalidation & Cookie Termination Endpoint (`src/app/api/auth/logout/route.ts`)**:
+  - Implemented `POST`, `GET`, and `DELETE` handlers for session invalidation.
+  - Destroys active session token in the database and explicitly clears the `releaselens_session` cookie (`Max-Age: 0`, `Expires: 1970-01-01`, `SameSite: Lax`, `HttpOnly`).
+  - Updated `Navbar.tsx` to call Firebase `signOutFirebase()` and `/api/auth/logout`, resetting user state and redirecting to `/login`.
+- **Defensive Content-Type Guards on Client Sign-In (`src/app/login/page.tsx`)**:
+  - Added strict `content-type` checking before parsing server responses.
+  - Eliminated `SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON` when an unexpected HTML error page is returned by the host.
+- **Cheerio-Powered Live HTML DOM & Accessibility Inspection Engine (`src/lib/engine/html-inspector.ts`)**:
+  - Built real-time semantic HTML inspector with SSRF perimeter guard.
+  - Analyzes document `<title>`, `<meta name="description">`, `<html lang>`, `<h1>` count, images missing `alt` attributes, interactive form inputs missing accessible labels, insecure mixed-content (`http://` on HTTPS), and dead anchors (`href="#"`).
+  - Generates deterministic SHA-256 finding fingerprints (`fnd_<sha256>`).
+  - Wired into Tier 1 automated probes in `src/lib/engine/audit-runner.ts`.
+- **Dynamic Navigation & Onboarding UI**:
+  - Refactored `Navbar.tsx` to dynamically render project sub-tabs (`Audit`, `Findings`, `Defects`, `Deltas`) only when viewing a specific project route (`/projects/[id]/*`).
+  - Enhanced empty dashboard state with a chamfered onboarding hero card and direct `[REGISTER FIRST APPLICATION]` CTA.
+  - Updated `deltas/page.tsx` to dynamically compute deltas between real audit runs via `analyzeReleaseDelta()`.
+- **Automated Test Suite Expansion**:
+  - Added `tests/html-inspector.test.ts` (DOM inspection, accessibility checks, mixed content detection).
+  - Added `tests/auth-lifecycle.test.ts` (logout session destruction & cookie clearance).
+  - All 17 test suites and 84 tests passing (`1.8s`).
+
+---
+
 ## [0.9.0] - 2026-11-19 — Production Security Hardening, SSRF Redirect Defense, Token-Bucket Rate Limiting & Enterprise HTTP Security Headers
 
 ### Added & Hardened

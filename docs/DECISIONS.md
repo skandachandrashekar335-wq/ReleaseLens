@@ -39,6 +39,9 @@
 | **ADR-028** | Firebase Authentication Integration with Server-Side Admin Verification | 2026-11-04 | `ACCEPTED` |
 | **ADR-029** | Three-Tier Audit Execution Demarcation & Explicit Lifecycle State Machine | 2026-11-09 | `ACCEPTED` |
 | **ADR-030** | Two-Pane Findings Triage Workbench with Deep-Linking & Guarded Keyboard Shortcuts | 2026-11-09 | `ACCEPTED` |
+| **ADR-031** | Editorial Luxury Sentient Aesthetic Design System & High-Precision Polyhedral Geometry | 2026-11-18 | `ACCEPTED` |
+| **ADR-032** | Production Security Hardening, SSRF Redirect Defense, Token-Bucket Rate Limiting & Enterprise HTTP Security Headers | 2026-11-19 | `ACCEPTED` |
+| **ADR-033** | Elimination of Synthetic Demo Seeds, Complete Zero-Trust Per-Gmail Tenant Isolation, Dedicated Invalidation & Live HTML DOM Inspector | 2026-11-20 | `ACCEPTED` |
 
 ---
 
@@ -275,5 +278,36 @@ Following the comprehensive state audit (`docs/STATE_AUDIT.md`), four key perime
 
 ### Status
 `IMPLEMENTED` | `TESTED` | `EXPERIMENTALLY_VERIFIED`
+
+---
+
+## ADR-033: Elimination of Synthetic Demo Seeds, Complete Zero-Trust Per-Gmail Tenant Isolation, Dedicated Invalidation & Live HTML DOM Inspector
+
+### Context
+Three user-facing limitations existed in the production prototype:
+1. Auto-seeding injected `proj_hackathon_demo` and `bug_sample_auth_1` whenever database tables reset on serverless cold starts.
+2. API routes contained special-case bypasses allowing unauthorized reads of the demo project.
+3. Sign-in error handling lacked defensive response inspection, triggering `Unexpected token '<', "<!DOCTYPE "... is not valid JSON` when an unexpected HTML error page was returned by Next.js or Vercel.
+4. Audits lacked automated evaluation of live HTML semantic hygiene (headings, alt tags, accessible labels, mixed content, and dead anchors).
+
+### Decision
+1. **Permanent Removal of Synthetic Database Seeding**:
+   - Stripped `seedDefaultData()` completely from `src/lib/store/db-adapter.ts`.
+   - Guaranteed empty initial profiles (`projects: []`, `audits: []`, `findings: []`, `bugs: []`) for all new Gmail sign-ins.
+2. **Strict Zero-Trust Tenant Isolation Across API Endpoints**:
+   - Stripped all `proj_hackathon_demo` bypasses from `/api/projects/[id]`, `/api/projects/[id]/audit`, `/api/findings`, `/api/bugs`, `/api/bugs/[id]`, `/api/bugs/[id]/retest`, `/api/assistant/chat`, and `/api/reports/share`.
+   - Every operation strictly checks `project.userId === auth.user.id`. Unauthenticated access yields `401 Unauthorized`; foreign resource access yields `403 Forbidden`.
+3. **Bulletproof Authentication Lifecycle & Invalidation**:
+   - Implemented `POST /api/auth/logout` endpoint in `src/app/api/auth/logout/route.ts` that removes the database session and clears the `releaselens_session` cookie (`Max-Age: 0`, `Expires: 1970-01-01`).
+   - Reinforced client auth fetch in `src/app/login/page.tsx` with explicit `content-type` validation before JSON parsing, permanently eliminating HTML DOCTYPE parse exceptions.
+   - Refactored `src/components/navigation/Navbar.tsx` to dynamically switch links based on route context (`/projects/[id]/*` vs global dashboard) and invoke clean logout.
+4. **Real-Time Live HTML DOM & Accessibility Inspection Engine**:
+   - Created `src/lib/engine/html-inspector.ts` using `cheerio` and SSRF perimeter guards.
+   - Evaluates: `<title>` existence/length, `<meta name="description">`, `<html lang>`, `<h1>` count, `<img>` missing `alt`, form inputs missing labels, insecure mixed-content (`http://` on HTTPS), and dead anchors (`href="#"`).
+   - Generates deterministic SHA-256 finding fingerprints and integrated directly into Tier 1 audit runner probes (`src/lib/engine/audit-runner.ts`).
+
+### Status
+`IMPLEMENTED` | `TESTED` | `EXPERIMENTALLY_VERIFIED`
+
 
 
