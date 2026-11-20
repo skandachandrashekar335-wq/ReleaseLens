@@ -45,7 +45,7 @@ export interface Project {
 export interface AutomatedCheck {
   id: string;
   auditRunId: string;
-  category?: "AVAILABILITY" | "TLS" | "HEADERS" | "BROKEN_LINKS" | "PAGESPEED" | "ACCESSIBILITY";
+  category?: "AVAILABILITY" | "TLS" | "HEADERS" | "BROKEN_LINKS" | "PAGESPEED" | "ACCESSIBILITY" | "DOM_HYGIENE";
   dimension?: string;
   checkName?: string;
   name?: string;

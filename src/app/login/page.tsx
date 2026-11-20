@@ -31,7 +31,9 @@ export default function LoginPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ idToken: res.idToken }),
           });
-          if (sessionRes.ok) {
+          const cType = sessionRes.headers.get("content-type") || "";
+          if (sessionRes.ok && cType.includes("application/json")) {
+            router.refresh();
             router.push("/dashboard");
             return;
           }
@@ -43,7 +45,8 @@ export default function LoginPage() {
 
     fetch("/api/auth/session")
       .then((res) => {
-        if (!res.ok) return { isAuthenticated: false };
+        const cType = res.headers.get("content-type") || "";
+        if (!res.ok || !cType.includes("application/json")) return { isAuthenticated: false };
         return res.json().catch(() => ({ isAuthenticated: false }));
       })
       .then((data) => {
@@ -79,11 +82,14 @@ export default function LoginPage() {
         body: JSON.stringify({ idToken }),
       });
 
+      const contentType = res.headers.get("content-type") || "";
       let data: any = null;
-      try {
-        data = await res.json();
-      } catch {
-        // Non-JSON response (e.g. server error page)
+      if (contentType.includes("application/json")) {
+        try {
+          data = await res.json();
+        } catch {
+          // Guard against malformed JSON bodies
+        }
       }
 
       if (!res.ok) {
@@ -92,6 +98,7 @@ export default function LoginPage() {
         );
       }
 
+      router.refresh();
       router.push("/dashboard");
     } catch (err: any) {
       console.error("Sign-in failed:", err);

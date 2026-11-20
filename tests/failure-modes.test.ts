@@ -9,11 +9,17 @@ describe("Real Failure Modes & Edge Case Resilience", () => {
   const testDbPath = "./data/test_failures.db";
   let db: PersistentDataStore;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     if (fs.existsSync(testDbPath)) {
       try { fs.unlinkSync(testDbPath); } catch {}
     }
     db = new PersistentDataStore(testDbPath);
+    await db.createUser({
+      id: "user_demo_1",
+      email: "qa@example.com",
+      name: "QA User",
+      role: "tester",
+    });
   });
 
   afterEach(() => {

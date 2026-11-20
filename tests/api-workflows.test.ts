@@ -8,11 +8,17 @@ describe("End-to-End Product Workflows (A through F)", () => {
   const testDbPath = "./data/test_workflows.db";
   let db: PersistentDataStore;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     if (fs.existsSync(testDbPath)) {
       try { fs.unlinkSync(testDbPath); } catch {}
     }
     db = new PersistentDataStore(testDbPath);
+    await db.createUser({
+      id: "user_demo_1",
+      email: "qa-tester@releaselens.dev",
+      name: "Lead QA Tester",
+      role: "lead_qa",
+    });
   });
 
   afterEach(() => {

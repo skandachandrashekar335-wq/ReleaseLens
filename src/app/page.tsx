@@ -75,8 +75,8 @@ export default function LandingPage() {
       router.push(`/projects/${project.id}`);
     } catch (err: any) {
       console.warn("Instant audit registration notice:", err.message);
-      // Fallback for unauthenticated instant audits: navigate to demo project
-      router.push("/projects/proj_hackathon_demo");
+      // Navigate to login / dashboard
+      router.push("/login");
     } finally {
       setIsAuditing(false);
     }
@@ -249,10 +249,10 @@ export default function LandingPage() {
             </p>
           </div>
           <Link
-            href="/projects/proj_hackathon_demo"
+            href="/dashboard"
             className="inline-flex items-center gap-1.5 text-xs font-mono text-primary hover:text-primary/80 uppercase tracking-wider"
           >
-            Explore Interactive Demo <ExternalLink className="size-3" />
+            Launch QA Workspace <ExternalLink className="size-3" />
           </Link>
         </div>
 

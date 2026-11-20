@@ -27,8 +27,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
-    // Demo content is immutable; findings can only be triaged by the verified project owner
-    if (project.id === "proj_hackathon_demo" || project.userId !== userId) {
+    // Findings can only be triaged by the verified project owner
+    if (project.userId !== userId) {
       return NextResponse.json({ error: "Forbidden: Cannot triage findings for projects you do not own." }, { status: 403 });
     }
 

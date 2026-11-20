@@ -27,8 +27,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
-    // Demo content cannot be retested; retests can only be recorded by the verified project owner
-    if (project.id === "proj_hackathon_demo" || project.userId !== userId) {
+    // Retests can only be recorded by the verified project owner
+    if (project.userId !== userId) {
       return NextResponse.json({ error: "Forbidden: Cannot record retests on projects you do not own." }, { status: 403 });
     }
 

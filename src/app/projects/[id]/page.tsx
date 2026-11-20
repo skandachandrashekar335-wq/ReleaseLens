@@ -102,21 +102,7 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
     }
   };
 
-  const displayRqi: RqiScore = rqi || {
-    overallScore: 82,
-    coveragePercentage: 90,
-    verdict: "PROVISIONAL_PASS",
-    gateSecurityPassed: true,
-    gateFunctionalPassed: bugs.filter((b) => b.severity === "CRITICAL" && b.status !== "VERIFIED" && b.status !== "CLOSED").length === 0,
-    securityScore: 88,
-    availabilityScore: 100,
-    linksScore: 80,
-    performanceScore: 72,
-    reasons: [
-      "Hard Gate 1 (Security): TLS certificate valid with >14 days remaining.",
-      "Hard Gate 2 (Functional): Zero active unverified CRITICAL defects.",
-    ],
-  };
+  const displayRqi: RqiScore | null = rqi;
 
   const criticalBugsCount = bugs.filter(
     (b) => b.severity === "CRITICAL" && b.status !== "VERIFIED" && b.status !== "CLOSED"
@@ -310,19 +296,43 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
       </div>
 
       {/* Main RQI and Gating Telemetry */}
-      <div className="space-y-6">
-        <RqiGauge rqi={displayRqi} />
+      {displayRqi ? (
+        <div className="space-y-6">
+          <RqiGauge rqi={displayRqi} />
 
-        <HardGateBadges
-          gateSecurityPassed={displayRqi.gateSecurityPassed}
-          gateFunctionalPassed={displayRqi.gateFunctionalPassed}
-          tlsValid={true}
-          tlsDaysLeft={85}
-          httpsRedirect={true}
-          clickjackingProtected={true}
-          criticalBugsCount={criticalBugsCount}
-        />
-      </div>
+          <HardGateBadges
+            gateSecurityPassed={displayRqi.gateSecurityPassed}
+            gateFunctionalPassed={displayRqi.gateFunctionalPassed}
+            tlsValid={true}
+            tlsDaysLeft={85}
+            httpsRedirect={true}
+            clickjackingProtected={true}
+            criticalBugsCount={criticalBugsCount}
+          />
+        </div>
+      ) : (
+        <div className="p-10 bg-[#0a0c10]/80 backdrop-blur-[2px] border border-border/80 text-center space-y-4 font-mono">
+          <Activity className="size-10 text-primary/60 mx-auto" />
+          <h2 className="text-base font-bold uppercase tracking-wider text-foreground">
+            No Release Audit Executed Yet
+          </h2>
+          <p className="text-xs text-foreground/60 max-w-lg mx-auto leading-relaxed">
+            ReleaseLens Quality Index (RQI) scoring and gate verification require executing an automated audit against {project?.targetUrl || "the target application"}.
+          </p>
+          <div className="pt-2">
+            <Button
+              onClick={handleRunAudit}
+              isLoading={isRunningAudit}
+              variant="chamfer"
+              size="sm"
+              className="gap-2"
+            >
+              <Play className="size-3 text-primary fill-primary" />
+              [EXECUTE FIRST LIVE AUDIT]
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Quick Summary Cards: Triage Queue & Bugs */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-mono">
@@ -434,7 +444,7 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
       )}
 
       {/* Developer Handoff Brief */}
-      {project && (
+      {project && displayRqi && (
         <DeveloperHandoffView project={project} rqi={displayRqi} bugs={bugs} checks={checks} />
       )}
 
@@ -444,7 +454,7 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
         isOpen={isAiOpen}
         onClose={() => setIsAiOpen(false)}
         auditContext={{
-          rqi: displayRqi,
+          rqi: displayRqi || undefined,
           checks,
           bugs,
         }}

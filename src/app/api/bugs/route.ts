@@ -16,15 +16,12 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Public demo project permits read-only defect review; private projects require exact ownership
-    if (project.id !== "proj_hackathon_demo") {
-      const auth = await getAuthSession();
-      if (!auth.user || !auth.isAuthenticated) {
-        return NextResponse.json({ error: "Unauthorized: Valid session required" }, { status: 401 });
-      }
-      if (project.userId !== auth.user.id) {
-        return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
-      }
+    const auth = await getAuthSession();
+    if (!auth.user || !auth.isAuthenticated) {
+      return NextResponse.json({ error: "Unauthorized: Valid session required" }, { status: 401 });
+    }
+    if (project.userId !== auth.user.id) {
+      return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
     }
 
     const bugs = await db.getBugsForProject(projectId);
@@ -83,8 +80,8 @@ export async function POST(req: Request) {
     if (!proj) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
-    // Demo content cannot be mutated; defects can only be created in user-owned projects
-    if (proj.id === "proj_hackathon_demo" || proj.userId !== userId) {
+    // Defects can only be created in user-owned projects
+    if (proj.userId !== userId) {
       return NextResponse.json({ error: "Forbidden: Cannot create defects in projects you do not own." }, { status: 403 });
     }
 

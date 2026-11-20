@@ -109,7 +109,6 @@ export class PersistentDataStore implements IDataStore {
     }
 
     this.initSchema();
-    this.seedDefaultData();
   }
 
   private initSchema() {
@@ -236,76 +235,6 @@ export class PersistentDataStore implements IDataStore {
       CREATE INDEX IF NOT EXISTS idx_findings_project_id ON findings(project_id);
       CREATE INDEX IF NOT EXISTS idx_bugs_project_id ON bugs(project_id);
     `);
-  }
-
-  private seedDefaultData() {
-    const userCount = this.db.prepare("SELECT COUNT(*) as count FROM users").get() as { count: number };
-    if (userCount.count === 0) {
-      const now = new Date().toISOString();
-      this.db.prepare(`
-        INSERT INTO users (id, email, name, avatar_url, role, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run("user_demo_1", "qa-demo@releaselens.dev", "Lead QA Engineer", null, "lead_qa", now);
-
-      this.db.prepare(`
-        INSERT INTO projects (id, user_id, name, target_url, environment, is_verified, verification_token, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        "proj_hackathon_demo",
-        "user_demo_1",
-        "SaaS Preview App (Hackathon QA)",
-        "https://v0-optimus-delta.vercel.app",
-        "PREVIEW",
-        1,
-        "rl_verify_demo_token_88923a1",
-        new Date(Date.now() - 86400000 * 2).toISOString(),
-        now
-      );
-
-      const sampleSteps = JSON.stringify([
-        "Open site on mobile viewport (375x667)",
-        "Tap the hamburger menu icon in the navbar",
-        "Observe full-screen menu overlay appears",
-        "Tap the (X) close button in top right",
-        "Observe menu does not dismiss; touch event is blocked by backdrop z-index",
-      ]);
-
-      const sampleTelemetry = JSON.stringify({
-        browser: "Mobile Safari 17.2",
-        os: "iOS 17",
-        viewport: "375x667",
-        deviceType: "Mobile",
-      });
-
-      this.db.prepare(`
-        INSERT INTO bugs (
-          id, project_id, user_id, title, description, affected_url,
-          steps_to_reproduce_json, expected_result, actual_result, severity, status,
-          environment_telemetry_json, evidence_urls_json, evidence_json, developer_notes,
-          reported_by, retest_count, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        "bug_sample_auth_1",
-        "proj_hackathon_demo",
-        "user_demo_1",
-        "Mobile Navigation Overlay Swallows Close Button Touch Events",
-        "When the mobile navigation menu is opened on viewports < 400px, tapping the (X) close icon fails to dismiss the drawer.",
-        "https://v0-optimus-delta.vercel.app",
-        sampleSteps,
-        "Tapping (X) should dismiss the drawer and return to page content.",
-        "Touch event swallowed; user is trapped in menu until page refresh.",
-        "HIGH",
-        "OPEN",
-        sampleTelemetry,
-        "[]",
-        "{}",
-        "Check z-index and pointer-events on the drawer close container.",
-        "Lead QA Engineer",
-        0,
-        new Date(Date.now() - 3600000 * 4).toISOString(),
-        new Date(Date.now() - 3600000 * 4).toISOString()
-      );
-    }
   }
 
   // --- Users & Sessions (Auth & Tenant Isolation) ---

@@ -11,6 +11,7 @@ import {
   ExternalLink,
   ArrowRight,
   Search,
+  FolderKanban,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -157,8 +158,28 @@ export default function DashboardPage() {
             Loading registered applications from persistence adapter...
           </div>
         ) : filteredProjects.length === 0 ? (
-          <div className="p-16 text-center text-xs font-mono text-foreground/50 bg-[#0a0c10]/80 backdrop-blur-[2px] border border-border/80">
-            No registered applications found. Click &ldquo;[REGISTER TARGET APP]&rdquo; to begin.
+          <div className="p-12 text-center bg-[#0a0c10]/85 backdrop-blur-[2px] border border-border/80 space-y-5 font-mono">
+            <div className="size-12 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto text-primary">
+              <FolderKanban className="size-6" />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-base font-semibold text-foreground uppercase tracking-wider">
+                Welcome to ReleaseLens QA Workspace
+              </h3>
+              <p className="text-xs text-foreground/60 max-w-md mx-auto leading-relaxed">
+                Your tenant profile is active and isolated. Register your web application or preview deployment URL to execute bounded automated audits and discover defects.
+              </p>
+            </div>
+            <div className="pt-2">
+              <Button
+                variant="chamfer"
+                onClick={() => setIsModalOpen(true)}
+                className="gap-2 px-6 h-10 text-xs font-semibold"
+              >
+                <Plus className="size-3.5 text-primary" />
+                [REGISTER FIRST APPLICATION]
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

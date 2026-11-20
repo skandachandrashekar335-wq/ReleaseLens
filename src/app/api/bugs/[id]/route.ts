@@ -15,15 +15,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Public demo project permits read-only inspection; private projects require ownership
-    if (project.id !== "proj_hackathon_demo") {
-      const auth = await getAuthSession();
-      if (!auth.user || !auth.isAuthenticated) {
-        return NextResponse.json({ error: "Unauthorized: Valid session required" }, { status: 401 });
-      }
-      if (project.userId !== auth.user.id) {
-        return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
-      }
+    const auth = await getAuthSession();
+    if (!auth.user || !auth.isAuthenticated) {
+      return NextResponse.json({ error: "Unauthorized: Valid session required" }, { status: 401 });
+    }
+    if (project.userId !== auth.user.id) {
+      return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
     }
 
     const retestHistory = await db.getRetestHistory(id);
@@ -51,8 +48,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
-    // Demo content cannot be modified; defects can only be patched by the project owner
-    if (project.id === "proj_hackathon_demo" || project.userId !== auth.user.id) {
+    // Defects can only be patched by the project owner
+    if (project.userId !== auth.user.id) {
       return NextResponse.json({ error: "Forbidden: Cannot modify bugs for projects you do not own." }, { status: 403 });
     }
 

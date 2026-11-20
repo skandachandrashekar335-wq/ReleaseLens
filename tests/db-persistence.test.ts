@@ -112,16 +112,28 @@ describe("Persistent Database & Tenant Isolation (node:sqlite)", () => {
 
   it("handles share token creation, retrieval, and 30-day expiration", async () => {
     const db = new PersistentDataStore(testDbPath);
-    const token = db.createShareToken("proj_hackathon_demo", undefined, {
+    const user = await db.createUser({
+      id: "u_share",
+      email: "share@test.com",
+      name: "Share User",
+      role: "tester",
+    });
+    const proj = await db.createProject({
+      userId: user.id,
+      name: "Share Project",
+      targetUrl: "https://example.com",
+      environment: "PRODUCTION",
+    });
+    const token = await db.createShareToken(proj.id, undefined, {
       summary: "Verified Handoff Package",
       verdict: "PROVISIONAL_PASS",
     });
 
     expect(token).toMatch(/^share_/);
 
-    const tokenData = db.getShareTokenData(token);
+    const tokenData = await db.getShareTokenData(token);
     expect(tokenData).not.toBeNull();
-    expect(tokenData?.projectId).toBe("proj_hackathon_demo");
+    expect(tokenData?.projectId).toBe(proj.id);
     expect(tokenData?.data.verdict).toBe("PROVISIONAL_PASS");
 
     // Invalid token returns null

@@ -31,21 +31,32 @@ export function Navbar() {
       .catch(() => {});
   }, []);
 
-  const navLinks = [
-    { href: "/dashboard", label: "Projects" },
-    { href: "/projects/proj_hackathon_demo", label: "Audit" },
-    { href: "/projects/proj_hackathon_demo/findings", label: "Findings" },
-    { href: "/projects/proj_hackathon_demo/bugs", label: "Defects" },
-    { href: "/projects/proj_hackathon_demo/deltas", label: "Deltas" },
-  ];
+  const projectMatch = pathname?.match(/^\/projects\/([^\/]+)/);
+  const currentProjectId = projectMatch ? projectMatch[1] : null;
+
+  const navLinks = currentProjectId
+    ? [
+        { href: "/dashboard", label: "Projects" },
+        { href: `/projects/${currentProjectId}`, label: "Audit" },
+        { href: `/projects/${currentProjectId}/findings`, label: "Findings" },
+        { href: `/projects/${currentProjectId}/bugs`, label: "Defects" },
+        { href: `/projects/${currentProjectId}/deltas`, label: "Deltas" },
+      ]
+    : [
+        { href: "/dashboard", label: "Dashboard" },
+        { href: "/#overview", label: "Architecture" },
+        { href: "/#features", label: "Capabilities" },
+      ];
 
   const handleSignOut = async () => {
     try {
       await signOutFirebase();
     } catch {}
-    await fetch("/api/auth/session", { method: "DELETE" });
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {}
     setUser(null);
-    window.location.href = "/";
+    window.location.href = "/login";
   };
 
   return (

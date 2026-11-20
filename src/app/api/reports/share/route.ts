@@ -33,8 +33,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Reports can only be shared by the verified project owner (or sample demo project)
-    if (project.userId !== userId && project.id !== "proj_hackathon_demo") {
+    // Reports can only be shared by the verified project owner
+    if (project.userId !== userId) {
       return NextResponse.json({ error: "Forbidden: Cannot share reports for projects you do not own." }, { status: 403 });
     }
 

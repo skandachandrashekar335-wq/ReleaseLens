@@ -3,6 +3,7 @@ import { inspectTlsCertificate } from "./tls-inspector";
 import { inspectSecurityHeaders } from "./security-headers";
 import { crawlWebsiteLinks } from "./link-crawler";
 import { runPageSpeedAudit } from "./pagespeed-client";
+import { inspectHtmlDom } from "./html-inspector";
 import { generatePotentialFindings } from "./findings-generator";
 import { calculateRqiScore } from "./rqi-calculator";
 import { PlaywrightBrowserWorker, BrowserExecutionResult } from "./browser-worker";
@@ -99,11 +100,12 @@ export async function executeAutomatedAudit(options: ExecuteAuditOptions): Promi
     };
   }
 
-  // 2. Parallel Probes: Tier 1 (Lightweight HTTP) and Tier 2 (Performance API)
-  const [tlsPromise, secPromise, linkPromise, pageSpeedPromise] = [
+  // 2. Parallel Probes: Tier 1 (Lightweight HTTP & HTML DOM) and Tier 2 (Performance API)
+  const [tlsPromise, secPromise, linkPromise, htmlDomPromise, pageSpeedPromise] = [
     inspectTlsCertificate(targetUrl, auditRunId),
     inspectSecurityHeaders(targetUrl, auditRunId),
     crawlWebsiteLinks(targetUrl, auditRunId, 15),
+    inspectHtmlDom(targetUrl, auditRunId, projectId),
     runPageSpeedAudit(targetUrl, auditRunId),
   ];
 
@@ -128,10 +130,11 @@ export async function executeAutomatedAudit(options: ExecuteAuditOptions): Promi
   }
 
   // Execute probes concurrently via Promise.allSettled
-  const [tlsSettled, secSettled, linkSettled, pageSpeedSettled, browserSettled] = await Promise.allSettled([
+  const [tlsSettled, secSettled, linkSettled, htmlDomSettled, pageSpeedSettled, browserSettled] = await Promise.allSettled([
     tlsPromise,
     secPromise,
     linkPromise,
+    htmlDomPromise,
     pageSpeedPromise,
     browserPromise,
   ]);
@@ -188,6 +191,13 @@ export async function executeAutomatedAudit(options: ExecuteAuditOptions): Promi
       errorMessage: `Link crawler failed: ${linkSettled.reason?.message || "Unknown error"}`,
       timestamp: new Date().toISOString(),
     });
+  }
+
+  // Process Tier 1 HTML DOM Inspection
+  let htmlFindings: any[] = [];
+  if (htmlDomSettled.status === "fulfilled") {
+    checks.push(...htmlDomSettled.value.checks);
+    htmlFindings = htmlDomSettled.value.findings;
   }
 
   // Process Tier 2 (Performance Audit via PageSpeed Insights)
@@ -248,6 +258,7 @@ export async function executeAutomatedAudit(options: ExecuteAuditOptions): Promi
 
   const findings = [
     ...baselineFindings,
+    ...htmlFindings,
     ...(browserResult?.findings || []),
   ];
 

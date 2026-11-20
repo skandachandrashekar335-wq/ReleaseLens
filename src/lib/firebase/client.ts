@@ -112,7 +112,7 @@ export async function signInWithGoogle(options?: { useRedirect?: boolean }): Pro
 
   try {
     const result = await signInWithPopup(auth, provider);
-    const idToken = await result.user.getIdToken();
+    const idToken = await result.user.getIdToken(true);
 
     return {
       idToken,
@@ -163,7 +163,7 @@ export async function getGoogleRedirectResult(): Promise<{
     const result = await getRedirectResult(auth);
     if (!result) return null;
 
-    const idToken = await result.user.getIdToken();
+    const idToken = await result.user.getIdToken(true);
     return {
       idToken,
       user: {
