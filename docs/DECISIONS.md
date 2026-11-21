@@ -309,5 +309,45 @@ Three user-facing limitations existed in the production prototype:
 ### Status
 `IMPLEMENTED` | `TESTED` | `EXPERIMENTALLY_VERIFIED`
 
+---
+
+## ADR-034: 20-Point AppSec Hardening, Strict Zod Validation, Origin Verification & Active Scanner Probes
+
+### Context
+ReleaseLens processes untrusted external URLs and coordinates audit findings, defect reports, and AI diagnostic queries. To meet enterprise application security standards across multi-tenant deployments and cloud execution, the platform required a comprehensive, zero-trust 20-point hardening architecture covering input defense, authentication/authorization posture, infrastructure hardening, and automated vulnerability scanning probes.
+
+### Decision
+1. **Pillar 1: Injection & Input Defense (Controls 1–5)**:
+   - **SQL Injection Defense**: 100% parameterized queries across SQLite (`?`) and Supabase PostgREST clients. No raw string interpolation in queries.
+   - **XSS Defense**: Zero occurrences of `dangerouslySetInnerHTML`, `innerHTML`, `eval()`, or `new Function()`. Strict React automatic escaping across all UI templates.
+   - **SSRF Defense**: Strict perimeter validation (`assertSafeTargetUrl` & `safeFetchWithSsrfRedirectGuard`) blocking private IPv4/IPv6 CIDRs, RFC1918, loopback, cloud metadata (AWS/GCP `169.254.169.254`), and protocol redirects.
+   - **Schema & Type Validation**: Strict Zod v4 schemas (`src/lib/validation/schemas.ts`) enforcing input bounds, enum validation, string trimming, and rejection of unexpected fields across all mutating endpoints.
+   - **File Upload & Path Traversal Guard**: `validateUploadPayload`, `sanitizeFilename`, and magic-byte inspection (`detectMagicMime`) rejecting non-whitelisted MIME types, path traversal markers (`..`), and Windows backslashes.
+
+2. **Pillar 2: Auth, Session & Access Control (Controls 6–10)**:
+   - **Broken Object-Level Authorization (BOLA/IDOR)**: Direct tenant ownership verification (`project.userId === auth.user.id`) enforced across all mutations.
+   - **Session Security**: Cryptographically random 256-bit hex tokens stored with `HttpOnly`, `Secure` (production), `SameSite=Lax`, and `Max-Age: 14 days`.
+   - **CSRF Defense**: `src/lib/security/csrf.ts` origin and referer verification on state-changing methods (`POST`, `PUT`, `PATCH`, `DELETE`) with strict allowlisting.
+   - **HMAC Signatures & CI Webhook Guard**: `src/lib/security/hmac.ts` timing-safe HMAC-SHA256 signature verification with timestamp replay tolerance ($\pm 5$ minutes).
+   - **MFA Readiness & Auth Posture**: Surfaced user authentication posture (`mfaEnrolled`, `emailVerified`, `passwordlessAuth`) through session endpoints.
+
+3. **Pillar 3: Infrastructure, Exposure & Secrets (Controls 11–15)**:
+   - **Production Source Maps**: Disabled client bundle source maps (`productionBrowserSourceMaps: false`) in `next.config.ts`.
+   - **Strict CORS Guard**: `src/lib/security/cors.ts` enforcing dynamic origin matching with zero wildcard `*` allowances on authenticated APIs.
+   - **Structured Safe Logging**: `src/lib/security/logger.ts` redacting passwords, session tokens, authorization headers, PEM keys, and API secrets.
+   - **Database Row Level Security (RLS)**: Enacted `supabase/migrations/002_enable_rls.sql` providing tenant-isolated Postgres policies.
+   - **Dependency Vulnerability Audits**: Upgraded `postcss` to `8.5.33` (resolving GHSA-6g55-p6wh-862q) with clean audit status.
+
+4. **Pillar 4: Active Target Scanner Probes (Controls 16–20)**:
+   - **Exposed Source Map Probes**: Added scanner probe detecting exposed `*.js.map` files returning valid JSON mappings.
+   - **Permissive CORS Probes**: Active preflight probe evaluating whether target origins reflect arbitrary origins with `Access-Control-Allow-Credentials: true`.
+   - **Cookie Security Probes**: Active audit evaluating missing `HttpOnly`, `Secure`, and `SameSite` flags on target session cookies.
+   - **Automated Security Findings Generation**: Automated conversion of AppSec probe failures into triageable findings (`src/lib/engine/findings-generator.ts`).
+   - **Dedicated Regression Test Harness**: 31 automated tests in `src/lib/security/__tests__/appsec-20.test.ts` covering all 20 controls.
+
+### Status
+`IMPLEMENTED` | `TESTED` | `EXPERIMENTALLY_VERIFIED`
+
+
 
 

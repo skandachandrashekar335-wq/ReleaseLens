@@ -3,6 +3,9 @@ import { db } from "@/lib/store/db-adapter";
 import { getAuthSession, SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { validateTargetUrl } from "@/lib/engine/ssrf-guard";
 import { checkRateLimit, createRateLimitResponse, getClientIp } from "@/lib/security/rate-limit";
+import { guardCsrf } from "@/lib/security/csrf";
+import { createProjectSchema } from "@/lib/validation/schemas";
+import { safeLogger } from "@/lib/security/logger";
 
 export async function GET() {
   try {
@@ -16,12 +19,17 @@ export async function GET() {
       headers: { "X-Total-Count": String(projects.length) },
     });
   } catch (error: any) {
+    safeLogger.error("Error fetching projects", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
+    // CSRF verification on state-changing requests
+    const csrfError = guardCsrf(req);
+    if (csrfError) return csrfError;
+
     const clientIp = getClientIp(req);
     const rateCheck = checkRateLimit(clientIp, {
       limit: 20,
@@ -51,12 +59,16 @@ export async function POST(req: Request) {
 
     const userId = user.id; // Strictly validated session identity, never client-supplied
 
-    const body = await req.json();
-    const { name, targetUrl, environment } = body;
-
-    if (!name || !targetUrl) {
-      return NextResponse.json({ error: "Project name and target URL are required" }, { status: 400 });
+    const body = await req.json().catch(() => ({}));
+    const validation = createProjectSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: validation.error.format() },
+        { status: 400 }
+      );
     }
+
+    const { name, targetUrl, environment } = validation.data;
 
     // SSRF & URL validation
     const ssrfCheck = await validateTargetUrl(targetUrl);
@@ -90,6 +102,7 @@ export async function POST(req: Request) {
 
     return response;
   } catch (error: any) {
+    safeLogger.error("Error creating project", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

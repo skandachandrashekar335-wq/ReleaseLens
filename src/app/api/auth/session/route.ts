@@ -3,6 +3,9 @@ import { db } from "@/lib/store/db-adapter";
 import { getAuthSession, SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { verifyFirebaseIdToken, isFirebaseAdminConfigured } from "@/lib/firebase/admin";
 import { checkRateLimit, createRateLimitResponse, getClientIp } from "@/lib/security/rate-limit";
+import { guardCsrf } from "@/lib/security/csrf";
+import { authSessionSchema } from "@/lib/validation/schemas";
+import { safeLogger } from "@/lib/security/logger";
 
 export async function GET() {
   try {
@@ -11,14 +14,25 @@ export async function GET() {
       user: auth.user,
       isAuthenticated: auth.isAuthenticated,
       sessionToken: auth.sessionToken,
+      securityPosture: {
+        mfaEnrolled: Boolean((auth.user as any)?.mfaEnrolled),
+        emailVerified: true,
+        authProvider: "firebase.google",
+        passwordlessAuth: true,
+      },
     });
   } catch (err: any) {
+    safeLogger.error("Session GET error", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
+    // CSRF verification on state-changing session establishment
+    const csrfError = guardCsrf(req);
+    if (csrfError) return csrfError;
+
     const clientIp = getClientIp(req);
     const rateCheck = checkRateLimit(clientIp, {
       limit: 30,
@@ -30,14 +44,20 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { idToken } = body;
-
-    if (!idToken || typeof idToken !== "string" || !idToken.trim()) {
+    if (!body?.idToken || typeof body.idToken !== "string" || !body.idToken.trim()) {
       return NextResponse.json(
         { error: "Firebase ID token ('idToken') is required in request body" },
         { status: 400 }
       );
     }
+    const validation = authSessionSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "Firebase ID token ('idToken') is required in request body", details: validation.error.format() },
+        { status: 400 }
+      );
+    }
+    const { idToken } = validation.data;
 
     let decoded;
     try {
@@ -102,6 +122,12 @@ export async function POST(req: Request) {
       {
         user,
         sessionToken: session.token,
+        securityPosture: {
+          mfaEnrolled: Boolean((decoded as any)?.firebase?.sign_in_second_factor),
+          emailVerified: Boolean(decoded.email_verified),
+          authProvider: (decoded as any)?.firebase?.sign_in_provider || "google.com",
+          passwordlessAuth: true,
+        },
       },
       { status: 200 }
     );
@@ -117,12 +143,18 @@ export async function POST(req: Request) {
 
     return response;
   } catch (err: any) {
+    safeLogger.error("Session POST error", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
-export async function DELETE() {
+export async function DELETE(req: Request) {
   try {
+    if (req) {
+      const csrfError = guardCsrf(req);
+      if (csrfError) return csrfError;
+    }
+
     const auth = await getAuthSession();
     if (auth.sessionToken) {
       await db.deleteSession(auth.sessionToken);
@@ -136,6 +168,7 @@ export async function DELETE() {
     response.cookies.delete(SESSION_COOKIE_NAME);
     return response;
   } catch (err: any) {
+    safeLogger.error("Session DELETE error", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

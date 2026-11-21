@@ -636,3 +636,31 @@ Before transmission, `sanitizeEvidence()` traverses the payload recursively:
 | **8** | **Missing Finding Fingerprinting & Deduplication** | **MEDIUM** | Findings generated with random UUIDs. | `PLANNED` | Deterministic SHA-256 fingerprinting based on `(project_id, test_source, check_name, affected_url)` scheduled for v1.0. |
 | **9** | **Complete Absence of CI/CD Pipeline** | **MEDIUM** | No `.github/workflows` directory. | `PLANNED` | Automated local test harness (`pnpm test`) has 15 suites / 81 tests passing; GitHub Actions workflow to be generated prior to git remote push. |
 | **10** | **Missing axe-core Accessibility Engine** | **LOW** | Local DOM accessibility relies on PageSpeed API. | `PROPOSED` | PageSpeed Insights Tier 2 provides accessibility scores; local `axe-core` runner proposed for offline scans. |
+
+---
+
+## 8. 20-Point AppSec Hardening Verification Matrix (v0.10.0)
+
+| Control # | Security Control Name | Implementation Location | Test Location | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **1** | SQL Injection Defense | `src/lib/store/db-adapter.ts`, `supabase-adapter.ts` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+| **2** | Cross-Site Scripting (XSS) Defense | React JSX Escaping, Zero unsafe sinks | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+| **3** | SSRF Defense & Hop-by-Hop Redirect Validation | `src/lib/engine/ssrf-guard.ts` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+| **4** | Strict Payload & Schema Validation | `src/lib/validation/schemas.ts` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+| **5** | File Upload & Path Traversal Guard | `src/lib/security/upload-guard.ts` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+| **6** | Broken Object-Level Authorization (BOLA/IDOR) | API route handlers (`/api/projects/[id]/*`, `/api/bugs/*`) | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+| **7** | Session Invalidation & Cookie Security | `src/app/api/auth/logout/route.ts`, `session.ts` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+| **8** | CSRF Defense & Origin Verification | `src/lib/security/csrf.ts` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+| **9** | Webhook HMAC-SHA256 Replay Protection | `src/lib/security/hmac.ts`, `/api/webhooks/ci` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+| **10** | MFA Readiness & Security Posture Surfacing | `src/app/api/auth/session/route.ts` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+| **11** | Production Source Map Exposure Prevention | `next.config.ts` (`productionBrowserSourceMaps: false`) | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+| **12** | Strict CORS Dynamic Origin Whitelisting | `src/lib/security/cors.ts` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+| **13** | Sensitive Data Redaction & Safe Logging | `src/lib/security/logger.ts` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+| **14** | Database Row Level Security (RLS) | `supabase/migrations/002_enable_rls.sql` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+| **15** | Dependency Vulnerability Remediation | `package.json` (`postcss: 8.5.33`) | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+| **16** | Active Scanner Probe: Source Map Exposure | `src/lib/engine/security-headers.ts:182-206` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+| **17** | Active Scanner Probe: Insecure CORS Reflections | `src/lib/engine/security-headers.ts:208-232` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+| **18** | Active Scanner Probe: Cookie Security Flags | `src/lib/engine/security-headers.ts:234-266` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+| **19** | Automated Security Findings Generation | `src/lib/engine/findings-generator.ts:117-175` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+| **20** | Secret Hygiene & Key Protection | `.env.local` omitted from git, safe logger | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+

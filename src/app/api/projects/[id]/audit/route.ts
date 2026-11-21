@@ -4,11 +4,16 @@ import { executeAutomatedAudit } from "@/lib/engine/audit-runner";
 import { analyzeReleaseDelta } from "@/lib/engine/delta-analyzer";
 import { getAuthSession } from "@/lib/auth/session";
 import { checkRateLimit, createRateLimitResponse, getClientIp } from "@/lib/security/rate-limit";
+import { guardCsrf } from "@/lib/security/csrf";
+import { safeLogger } from "@/lib/security/logger";
 
 export const maxDuration = 15;
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const csrfError = guardCsrf(req);
+    if (csrfError) return csrfError;
+
     const { id } = await params;
     const auth = await getAuthSession();
     if (!auth.user || !auth.isAuthenticated) {
@@ -68,6 +73,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       { status: 201 }
     );
   } catch (error: any) {
+    safeLogger.error("Audit execution error", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

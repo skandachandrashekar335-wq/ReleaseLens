@@ -113,7 +113,68 @@ export function generatePotentialFindings(
     });
   }
 
-  // 4. Performance findings
+  // 4. AppSec Probe Findings (Source Maps, Insecure CORS, Insecure Cookies)
+  const sourceMapCheck = checks.find((c) => c.checkName?.includes("Source Map"));
+  if (sourceMapCheck && sourceMapCheck.status === "FAIL") {
+    findings.push({
+      id: `find_sourcemap_${Date.now()}`,
+      auditRunId,
+      projectId,
+      testSource: "SECURITY_PROBE",
+      affectedUrl: sourceMapCheck.rawEvidence?.exposedMapUrl || targetUrl,
+      title: "Exposed Production JavaScript Source Maps",
+      description: "Publicly accessible JavaScript .map files allow unauthorized reverse-engineering of proprietary client source code.",
+      expectedBehavior: "Production source maps should be disabled or access-restricted to internal telemetry.",
+      observedBehavior: `Exposed source map located at ${sourceMapCheck.rawEvidence?.exposedMapUrl || "target origin"}.`,
+      recommendedSeverity: "HIGH",
+      confidence: "HIGH",
+      evidencePayload: sourceMapCheck.rawEvidence || {},
+      status: "NEEDS_REVIEW",
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  const corsCheck = checks.find((c) => c.checkName?.includes("CORS"));
+  if (corsCheck && corsCheck.status === "FAIL") {
+    findings.push({
+      id: `find_cors_${Date.now()}`,
+      auditRunId,
+      projectId,
+      testSource: "SECURITY_PROBE",
+      affectedUrl: targetUrl,
+      title: "Overly Permissive CORS with Credential Exposure",
+      description: "CORS preflight reflects untrusted origins with Access-Control-Allow-Credentials: true, enabling unauthorized cross-origin data extraction.",
+      expectedBehavior: "CORS should restrict allowed origins to explicit trusted domains and disallow wildcard origins with credentials.",
+      observedBehavior: "Target returned Access-Control-Allow-Credentials: true with reflected untrusted origin.",
+      recommendedSeverity: "CRITICAL",
+      confidence: "HIGH",
+      evidencePayload: corsCheck.rawEvidence || {},
+      status: "NEEDS_REVIEW",
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  const cookieCheck = checks.find((c) => c.checkName?.includes("Cookie Security Flags"));
+  if (cookieCheck && cookieCheck.status === "FAIL") {
+    findings.push({
+      id: `find_cookie_${Date.now()}`,
+      auditRunId,
+      projectId,
+      testSource: "SECURITY_PROBE",
+      affectedUrl: targetUrl,
+      title: "Session Cookies Missing In-Depth Security Flags",
+      description: "Cookies returned by target origin lack HttpOnly, Secure, or SameSite protection flags.",
+      expectedBehavior: "All sensitive cookies must include HttpOnly, Secure, and SameSite=Lax/Strict flags.",
+      observedBehavior: cookieCheck.errorMessage || "Insecure cookie flags detected.",
+      recommendedSeverity: "MEDIUM",
+      confidence: "HIGH",
+      evidencePayload: cookieCheck.rawEvidence || {},
+      status: "NEEDS_REVIEW",
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  // 5. Performance findings
   const perfCheck = checks.find((c) => c.category === "PAGESPEED");
   if (perfCheck && perfCheck.score !== undefined && perfCheck.score < 50) {
     findings.push({

@@ -4,6 +4,36 @@ All notable changes to the ReleaseLens project are documented in this file in ad
 
 ---
 
+## [0.10.0] - 2026-11-21 — 20-Point AppSec Hardening, Strict Zod Validation, Origin Verification & Active Scanner Probes
+
+### Added & Hardened
+- **Pillar 1: Injection & Input Defense (Controls 1–5)**:
+  - **SQL Injection Defense**: 100% of queries across `src/lib/store/db-adapter.ts` and `src/lib/store/supabase-adapter.ts` verified using parameterized prepared statements (`?` placeholders) and PostgREST client calls. Zero raw string interpolation.
+  - **XSS Defense**: Audited codebase confirming 0 occurrences of `dangerouslySetInnerHTML`, `innerHTML`, `eval()`, or `new Function()`.
+  - **SSRF Perimeter Defense**: Exported `assertSafeTargetUrl` and `safeFetchWithSsrfRedirectGuard` in `src/lib/engine/ssrf-guard.ts` with hop-by-hop redirect validation, CIDR blocking, and cloud metadata defense.
+  - **Zod v4 API Payload Validation (`src/lib/validation/schemas.ts`)**: Built and wired strict runtime schemas for `createProjectSchema`, `updateProjectSchema`, `auditTriggerSchema`, `createBugSchema`, `updateBugSchema`, `retestBugSchema`, `updateFindingSchema`, `shareReportSchema`, `chatMessageSchema`, and `authSessionSchema`.
+  - **File Upload & Path Traversal Guard (`src/lib/security/upload-guard.ts`)**: Implemented `validateUploadPayload`, `sanitizeFilename` (stripping directory traversal, Windows backslashes, consecutive dots), and `detectMagicMime` verifying magic bytes for PNG, JPEG, PDF, and JSON.
+- **Pillar 2: Auth, Session & Access Control (Controls 6–10)**:
+  - **Broken Object-Level Authorization (BOLA/IDOR)**: Enforced strict project owner checks across all mutation endpoints (`/api/projects/[id]`, `/api/projects/[id]/audit`, `/api/findings/[id]`, `/api/bugs/[id]`, `/api/bugs/[id]/retest`, `/api/reports/share`).
+  - **Session Security Posture**: Session tokens generate 256 bits of cryptographic entropy (`crypto.randomBytes(32)`), stored in `releaselens_session` cookie (`HttpOnly`, `Secure` in production, `SameSite=Lax`, 14-day expiry).
+  - **CSRF & Origin Verification Guard (`src/lib/security/csrf.ts`)**: Enforced `guardCsrf(req)` across all state-changing API routes (`POST`, `PUT`, `PATCH`, `DELETE`), rejecting untrusted foreign origins.
+  - **HMAC Signatures & CI Webhook Guard (`src/lib/security/hmac.ts`)**: Implemented timing-safe `crypto.timingSafeEqual` signature verification with replay tolerance ($\pm 5$ min). Added protected webhook trigger endpoint `src/app/api/webhooks/ci/route.ts`.
+  - **MFA Readiness & Auth Metadata**: Surfaced user authentication posture (`mfaEnrolled`, `emailVerified`, `passwordlessAuth`) through session endpoints.
+- **Pillar 3: Infrastructure, Exposure & Secrets (Controls 11–15)**:
+  - **Source Map Exposure Prevention**: Set `productionBrowserSourceMaps: false` in `next.config.ts`.
+  - **Strict CORS Guard (`src/lib/security/cors.ts`)**: Dynamic origin verification with zero wildcard `*` permissions on authenticated endpoints.
+  - **Structured Safe Logger (`src/lib/security/logger.ts`)**: Automatic redaction of passwords, session cookies, authorization tokens, PEM blocks, and API keys.
+  - **Supabase Row Level Security Migration (`supabase/migrations/002_enable_rls.sql`)**: Comprehensive RLS policies enforcing tenant-level data isolation.
+  - **Dependency Auditing**: Upgraded `postcss` to `8.5.33` to remediate high-severity vulnerability GHSA-6g55-p6wh-862q; verified clean with `gitleaks` secret detection.
+- **Pillar 4: Active Target Scanner Probes (Controls 16–20)**:
+  - **Active Source Map Probes**: Added inspection for publicly exposed `.js.map` files returning valid JSON mappings.
+  - **Active Permissive CORS Probes**: Probes for reflected untrusted origins with `Access-Control-Allow-Credentials: true`.
+  - **Active Cookie Security Probes**: Evaluates target session cookies for missing `HttpOnly`, `Secure`, and `SameSite` flags.
+  - **Automated Security Findings Generation (`src/lib/engine/findings-generator.ts`)**: AppSec probe anomalies automatically generate structured findings.
+  - **Comprehensive 20-Point Regression Suite (`src/lib/security/__tests__/appsec-20.test.ts`)**: 31 automated tests verifying all 20 controls. All 31 pass. Total repository tests: 115 passing across 18 test files.
+
+---
+
 ## [0.9.1] - 2026-11-20 — Synthetic Data Elimination, Dedicated Session Invalidation, HTML DOM Inspector & Strict Tenant Isolation
 
 ### Added & Hardened

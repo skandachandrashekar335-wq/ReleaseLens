@@ -26,7 +26,7 @@ describe("Strict Multi-Tenant API Authorization & Security Audit", () => {
   let demoBug: any;
 
   beforeEach(async () => {
-    // Ensure Alice and Bob exist in users table to satisfy relational foreign key constraints
+    // Ensure Alice, Bob, and Demo exist in users table to satisfy relational foreign key constraints
     let userA = await db.getUser(aliceId);
     if (!userA) {
       await db.createUser({ id: aliceId, email: "alice@company.com", name: "Alice", role: "qa_lead" });
@@ -34,6 +34,22 @@ describe("Strict Multi-Tenant API Authorization & Security Audit", () => {
     let userB = await db.getUser(bobId);
     if (!userB) {
       await db.createUser({ id: bobId, email: "bob@evilcorp.com", name: "Bob", role: "tester" });
+    }
+    let userDemo = await db.getUser("user_demo_1");
+    if (!userDemo) {
+      await db.createUser({ id: "user_demo_1", email: "demo@releaselens.dev", name: "Demo User", role: "tester" });
+    }
+
+    // Ensure public demo project exists to satisfy foreign key constraints
+    let demoPublicProject = await db.getProject("proj_hackathon_demo");
+    if (!demoPublicProject) {
+      await db.createProject({
+        id: "proj_hackathon_demo",
+        userId: "user_demo_1",
+        name: "ReleaseLens Hackathon Demo Target",
+        targetUrl: "https://demo.releaselens.dev",
+        environment: "PREVIEW",
+      } as any);
     }
 
     // Setup Alice's private project

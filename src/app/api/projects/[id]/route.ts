@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/store/db-adapter";
 import { getAuthSession } from "@/lib/auth/session";
+import { guardCsrf } from "@/lib/security/csrf";
+import { safeLogger } from "@/lib/security/logger";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -31,12 +33,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       activeBugsCount: bugs.filter((b) => b.status !== "FIXED" && b.status !== "VERIFIED").length,
     });
   } catch (error: any) {
+    safeLogger.error("Error retrieving project", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const csrfError = guardCsrf(req);
+    if (csrfError) return csrfError;
+
     const { id } = await params;
     const auth = await getAuthSession();
     if (!auth.user || !auth.isAuthenticated) {
@@ -56,6 +62,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     const success = await db.deleteProject(id);
     return NextResponse.json({ success });
   } catch (error: any) {
+    safeLogger.error("Error deleting project", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

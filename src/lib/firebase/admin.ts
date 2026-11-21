@@ -50,6 +50,19 @@ export function initFirebaseAdmin(): App {
     formattedPrivateKey = formattedPrivateKey.replace(/\\n/g, "\n");
   }
 
+  // Reject weak or dummy fallback secrets in production
+  if (process.env.NODE_ENV === "production") {
+    if (
+      formattedPrivateKey.length < 50 ||
+      !formattedPrivateKey.includes("PRIVATE KEY") ||
+      formattedPrivateKey.includes("REPLACE_WITH")
+    ) {
+      throw new Error(
+        "WEAK_SECRET_PROHIBITED: Production Firebase private key is invalid, placeholder, or weak."
+      );
+    }
+  }
+
   adminApp = initializeApp({
     credential: cert({
       projectId: config.projectId,

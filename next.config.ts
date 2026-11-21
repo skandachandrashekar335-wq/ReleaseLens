@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  productionBrowserSourceMaps: false,
   async rewrites() {
     return {
       beforeFiles: [

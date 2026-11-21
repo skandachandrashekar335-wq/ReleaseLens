@@ -177,6 +177,137 @@ export async function inspectSecurityHeaders(
     timestamp: new Date().toISOString(),
   });
 
+  // 3. Inspect Set-Cookie header flags (HttpOnly, Secure, SameSite)
+  const setCookieHeader = resHeaders.get("set-cookie") || "";
+  let cookieIssues: string[] = [];
+  if (setCookieHeader) {
+    const cookiesList = setCookieHeader.split(/,(?=[^;]+=[^;]+)/g);
+    for (const c of cookiesList) {
+      const lower = c.toLowerCase();
+      const cookieName = c.split("=")[0].trim();
+      const missingFlags: string[] = [];
+      if (!lower.includes("httponly")) missingFlags.push("HttpOnly");
+      if (!lower.includes("secure")) missingFlags.push("Secure");
+      if (!lower.includes("samesite")) missingFlags.push("SameSite");
+      if (missingFlags.length > 0) {
+        cookieIssues.push(`Cookie '${cookieName}' missing: ${missingFlags.join(", ")}`);
+      }
+    }
+  }
+
+  checks.push({
+    id: `check_cookie_flags_${Date.now()}`,
+    auditRunId,
+    category: "HEADERS",
+    checkName: "Cookie Security Flags (HttpOnly, Secure, SameSite)",
+    status: cookieIssues.length === 0 ? "PASS" : "FAIL",
+    score: cookieIssues.length === 0 ? 100 : 30,
+    weight: 0.10,
+    rawEvidence: {
+      hasCookies: !!setCookieHeader,
+      issuesCount: cookieIssues.length,
+      cookieIssues,
+    },
+    errorMessage:
+      cookieIssues.length > 0
+        ? `Insecure cookies detected: ${cookieIssues.join("; ")}`
+        : undefined,
+    timestamp: new Date().toISOString(),
+  });
+
+  // 4. Active CORS Permissiveness Probe
+  let corsOverlyPermissive = false;
+  let corsDetails: any = {};
+  try {
+    const corsProbe = await fetch(targetUrl, {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://evil-cross-origin.example.com",
+        "Access-Control-Request-Method": "POST",
+      },
+      signal: AbortSignal.timeout(3000),
+    });
+
+    const acao = corsProbe.headers.get("access-control-allow-origin") || "";
+    const acac = corsProbe.headers.get("access-control-allow-credentials") || "";
+
+    if (
+      (acao === "*" && acac.toLowerCase() === "true") ||
+      (acao.includes("evil-cross-origin.example.com") && acac.toLowerCase() === "true")
+    ) {
+      corsOverlyPermissive = true;
+    }
+
+    corsDetails = {
+      status: corsProbe.status,
+      accessControlAllowOrigin: acao,
+      accessControlAllowCredentials: acac,
+      permissiveWildcardWithCredentials: corsOverlyPermissive,
+    };
+  } catch (err: any) {
+    corsDetails = { probeError: err.message };
+  }
+
+  checks.push({
+    id: `check_cors_policy_${Date.now()}`,
+    auditRunId,
+    category: "HEADERS",
+    checkName: "CORS Permissiveness & Credential Exposure",
+    status: corsOverlyPermissive ? "FAIL" : "PASS",
+    score: corsOverlyPermissive ? 0 : 100,
+    weight: 0.10,
+    rawEvidence: corsDetails,
+    errorMessage: corsOverlyPermissive
+      ? "CORS policy reflects untrusted origins with Access-Control-Allow-Credentials: true."
+      : undefined,
+    timestamp: new Date().toISOString(),
+  });
+
+  // 5. Active Production Source Map Exposure Probe
+  let sourceMapExposed = false;
+  let exposedMapUrl: string | undefined;
+  try {
+    const probePaths = ["/main.js.map", "/app.js.map", "/bundle.js.map"];
+    for (const p of probePaths) {
+      const mapUrl = new URL(p, targetUrl).toString();
+      const mapRes = await fetch(mapUrl, {
+        method: "GET",
+        headers: { Accept: "application/json,text/plain" },
+        signal: AbortSignal.timeout(2500),
+      });
+
+      if (mapRes.ok && mapRes.status === 200) {
+        const textSample = (await mapRes.text()).slice(0, 500);
+        if (
+          (textSample.includes('"sources"') || textSample.includes('"mappings"')) &&
+          textSample.includes('"version"')
+        ) {
+          sourceMapExposed = true;
+          exposedMapUrl = mapUrl;
+          break;
+        }
+      }
+    }
+  } catch {}
+
+  checks.push({
+    id: `check_source_maps_${Date.now()}`,
+    auditRunId,
+    category: "HEADERS",
+    checkName: "Production JavaScript Source Map Exposure",
+    status: sourceMapExposed ? "FAIL" : "PASS",
+    score: sourceMapExposed ? 0 : 100,
+    weight: 0.10,
+    rawEvidence: {
+      sourceMapExposed,
+      exposedMapUrl,
+    },
+    errorMessage: sourceMapExposed
+      ? `Exposed production JavaScript source map detected at '${exposedMapUrl}'. Unminified source code may be visible.`
+      : undefined,
+    timestamp: new Date().toISOString(),
+  });
+
   return {
     checks,
     score: normalizedScore,

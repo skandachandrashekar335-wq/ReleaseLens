@@ -227,7 +227,7 @@ describe("ReleaseLens v0.7.0 — Firebase Authentication & Tenant Isolation", ()
         isAuthenticated: true,
       });
 
-      const res = await sessionDelete();
+      const res = await sessionDelete(new Request("http://localhost/api/auth/session", { method: "DELETE" }));
       expect(res.status).toBe(200);
 
       // Verify session was removed from database

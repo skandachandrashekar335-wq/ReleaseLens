@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/store/db-adapter";
 import { getAuthSession } from "@/lib/auth/session";
 import { checkRateLimit, createRateLimitResponse, getClientIp } from "@/lib/security/rate-limit";
+import { guardCsrf } from "@/lib/security/csrf";
+import { createBugSchema } from "@/lib/validation/schemas";
+import { safeLogger } from "@/lib/security/logger";
 
 export async function GET(req: Request) {
   try {
@@ -29,12 +32,16 @@ export async function GET(req: Request) {
       headers: { "X-Total-Count": String(bugs.length) },
     });
   } catch (error: any) {
+    safeLogger.error("Error fetching bugs", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
+    const csrfError = guardCsrf(req);
+    if (csrfError) return csrfError;
+
     const auth = await getAuthSession();
     if (!auth.user || !auth.isAuthenticated) {
       return NextResponse.json({ error: "Unauthorized: Valid session required" }, { status: 401 });
@@ -51,30 +58,27 @@ export async function POST(req: Request) {
       return createRateLimitResponse(rateCheck);
     }
 
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const validation = createBugSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: validation.error.format() },
+        { status: 400 }
+      );
+    }
+
     const {
       projectId,
       title,
       description,
       affectedUrl,
       stepsToReproduce,
-      expectedBehavior,
       expectedResult,
-      actualBehavior,
       actualResult,
       severity,
-      environmentTelemetry,
-      evidence,
       developerNotes,
-      reportedBy,
-    } = body;
-
-    if (!projectId || !title) {
-      return NextResponse.json(
-        { error: "projectId and title are required" },
-        { status: 400 }
-      );
-    }
+      sourceFindingId,
+    } = validation.data;
 
     const proj = await db.getProject(projectId);
     if (!proj) {
@@ -91,25 +95,27 @@ export async function POST(req: Request) {
     const bug = await db.createBug({
       projectId,
       userId,
+      sourceFindingId,
       title: title.trim(),
       description: description || "",
       affectedUrl: targetUrl.trim(),
       stepsToReproduce: Array.isArray(stepsToReproduce) ? stepsToReproduce : [stepsToReproduce || ""],
-      expectedResult: expectedBehavior || expectedResult || "",
-      actualResult: actualBehavior || actualResult || "",
+      expectedResult: expectedResult || "",
+      actualResult: actualResult || "",
       severity: severity || "HIGH",
       status: "OPEN",
-      environmentTelemetry: environmentTelemetry || {
+      environmentTelemetry: body.environmentTelemetry || {
         deviceType: "Desktop/Mobile QA Session",
       },
       evidenceUrls: [],
-      evidence: evidence || {},
-      developerNotes: developerNotes || null,
-      reportedBy: reportedBy || "QA Explorer",
+      evidence: body.evidence || {},
+      developerNotes: developerNotes || undefined,
+      reportedBy: body.reportedBy || "QA Explorer",
     });
 
     return NextResponse.json(bug, { status: 201 });
   } catch (error: any) {
+    safeLogger.error("Error creating bug report", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

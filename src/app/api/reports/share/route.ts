@@ -2,9 +2,15 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/store/db-adapter";
 import { getAuthSession } from "@/lib/auth/session";
 import { checkRateLimit, createRateLimitResponse, getClientIp } from "@/lib/security/rate-limit";
+import { guardCsrf } from "@/lib/security/csrf";
+import { shareReportSchema } from "@/lib/validation/schemas";
+import { safeLogger } from "@/lib/security/logger";
 
 export async function POST(req: Request) {
   try {
+    const csrfError = guardCsrf(req);
+    if (csrfError) return csrfError;
+
     const auth = await getAuthSession();
     if (!auth.user || !auth.isAuthenticated) {
       return NextResponse.json({ error: "Unauthorized: Valid session required" }, { status: 401 });
@@ -21,12 +27,17 @@ export async function POST(req: Request) {
       return createRateLimitResponse(rateCheck);
     }
 
-    const body = await req.json();
-    const { projectId, auditId, data } = body;
-
-    if (!projectId) {
-      return NextResponse.json({ error: "projectId is required" }, { status: 400 });
+    const body = await req.json().catch(() => ({}));
+    const validation = shareReportSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: validation.error.format() },
+        { status: 400 }
+      );
     }
+
+    const { projectId, auditId } = validation.data;
+    const { data } = body;
 
     const project = await db.getProject(projectId);
     if (!project) {
@@ -48,6 +59,7 @@ export async function POST(req: Request) {
       { status: 201 }
     );
   } catch (error: any) {
+    safeLogger.error("Error creating share token", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

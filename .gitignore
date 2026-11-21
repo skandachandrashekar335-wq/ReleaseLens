@@ -22,7 +22,10 @@ out/
 # Database
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 *.sqlite
+data/
 
 # Logs & testing
 npm-debug.log*

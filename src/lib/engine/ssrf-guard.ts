@@ -126,3 +126,59 @@ export async function validateTargetUrl(
 export function isPrivateIp(ip: string): boolean {
   return BLOCKED_IP_PATTERNS.some((pattern) => pattern.test(ip));
 }
+
+/**
+ * Asserts that a target URL is strictly safe from SSRF.
+ * Throws an Error if URL is invalid, uses private IP/loopback, or fails security checks.
+ */
+export async function assertSafeTargetUrl(
+  targetUrl: string,
+  options: SsrfOptions = {}
+): Promise<string> {
+  const result = await validateTargetUrl(targetUrl, options);
+  if (!result.isAllowed) {
+    throw new Error(
+      `SSRF_PROHIBITED: ${result.reason || "Target URL violates server-side network safety perimeter."}`
+    );
+  }
+  return targetUrl;
+}
+
+/**
+ * Safe outbound fetcher with hop-by-hop SSRF validation across all redirects.
+ */
+export async function fetchWithSsrfGuard(
+  initialUrl: string,
+  init: RequestInit = {},
+  maxRedirects = 5
+): Promise<Response> {
+  let currentUrl = initialUrl;
+  let redirectsCount = 0;
+
+  while (redirectsCount <= maxRedirects) {
+    await assertSafeTargetUrl(currentUrl);
+
+    const res = await fetch(currentUrl, {
+      ...init,
+      redirect: "manual",
+    });
+
+    // Check if redirect
+    if ([301, 302, 303, 307, 308].includes(res.status)) {
+      const location = res.headers.get("location");
+      if (!location) return res;
+
+      redirectsCount++;
+      if (redirectsCount > maxRedirects) {
+        throw new Error(`SSRF_PROHIBITED: Exceeded maximum allowed redirects (${maxRedirects}).`);
+      }
+
+      currentUrl = new URL(location, currentUrl).toString();
+      continue;
+    }
+
+    return res;
+  }
+
+  throw new Error("SSRF_PROHIBITED: Redirect validation loop terminated.");
+}

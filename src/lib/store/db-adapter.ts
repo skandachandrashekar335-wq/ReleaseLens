@@ -54,7 +54,7 @@ export interface IDataStore {
   getFindingsForProject(projectId: string): Promise<PotentialFinding[]>;
   updateFindingStatus(
     findingId: string,
-    status: "CONFIRMED" | "REJECTED" | "DUPLICATE" | "ACCEPTED_RISK",
+    status: PotentialFinding["status"],
     triageNotes?: string,
     convertedBugId?: string,
     triagedBy?: string
@@ -112,6 +112,10 @@ export class PersistentDataStore implements IDataStore {
   }
 
   private initSchema() {
+    try {
+      this.db.exec("PRAGMA busy_timeout = 10000;");
+      this.db.exec("PRAGMA journal_mode = WAL;");
+    } catch {}
     this.db.exec(`
       PRAGMA foreign_keys = ON;
 
@@ -328,9 +332,9 @@ export class PersistentDataStore implements IDataStore {
   }
 
   async createProject(
-    project: Omit<Project, "id" | "createdAt" | "updatedAt" | "verificationToken">
+    project: Omit<Project, "id" | "createdAt" | "updatedAt" | "verificationToken"> & { id?: string }
   ): Promise<Project> {
-    const id = `proj_${Date.now()}_${crypto.randomUUID().substring(0, 8)}`;
+    const id = project.id || `proj_${Date.now()}_${crypto.randomUUID().substring(0, 8)}`;
     const verificationToken = `rl_verify_${crypto.randomUUID().replace(/-/g, "")}`;
     const now = new Date().toISOString();
 

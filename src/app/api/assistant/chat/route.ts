@@ -3,9 +3,14 @@ import { db } from "@/lib/store/db-adapter";
 import { queryEvidenceAssistant } from "@/lib/ai/gemini-assistant";
 import { getAuthSession } from "@/lib/auth/session";
 import { checkRateLimit, createRateLimitResponse, getClientIp } from "@/lib/security/rate-limit";
+import { guardCsrf } from "@/lib/security/csrf";
+import { safeLogger } from "@/lib/security/logger";
 
 export async function POST(req: Request) {
   try {
+    const csrfError = guardCsrf(req);
+    if (csrfError) return csrfError;
+
     const auth = await getAuthSession();
     const userId = auth.user?.id;
     const clientIdentifier = userId || getClientIp(req);
