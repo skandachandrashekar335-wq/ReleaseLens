@@ -657,7 +657,7 @@ Before transmission, `sanitizeEvidence()` traverses the payload recursively:
 | **12** | Strict CORS Dynamic Origin Whitelisting | `src/lib/security/cors.ts` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
 | **13** | Sensitive Data Redaction & Safe Logging | `src/lib/security/logger.ts` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
 | **14** | Database Row Level Security (RLS) | `supabase/migrations/002_enable_rls.sql` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
-| **15** | Dependency Vulnerability Remediation | `package.json` (`postcss: 8.5.33`) | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
+| **15** | Dependency Vulnerability Remediation | `package.json`, `pnpm-workspace.yaml` (`next: 15.5.29`, `postcss: 8.5.33`, `tinypool: 2.2.0`, `@grpc/grpc-js: 1.14.7`) | `src/lib/security/__tests__/appsec-20.test.ts`, `pnpm audit` (0 critical, 0 high) | `IMPLEMENTED` + `TESTED` |
 | **16** | Active Scanner Probe: Source Map Exposure | `src/lib/engine/security-headers.ts:182-206` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
 | **17** | Active Scanner Probe: Insecure CORS Reflections | `src/lib/engine/security-headers.ts:208-232` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |
 | **18** | Active Scanner Probe: Cookie Security Flags | `src/lib/engine/security-headers.ts:234-266` | `src/lib/security/__tests__/appsec-20.test.ts` | `IMPLEMENTED` + `TESTED` |

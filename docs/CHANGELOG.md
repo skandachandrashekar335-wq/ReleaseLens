@@ -4,6 +4,25 @@ All notable changes to the ReleaseLens project are documented in this file in ad
 
 ---
 
+## [0.10.2] - 2026-11-22 — Frontend Environment Isolation, Next.js 15.5.29 Patching & Dependency Supply Chain Hardening
+
+### Added & Hardened
+- **Frontend Environment Isolation & Security Auditing (`src/app/`, `src/components/`, `src/lib/`)**:
+  - Audited all client components and files across `src/`, verifying that 0 client components read `process.env` directly.
+  - Confirmed all server-side secrets (`FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, `GOOGLE_PAGESPEED_API_KEY`, `DATABASE_URL`) lack `NEXT_PUBLIC_` prefixes, preventing accidental client bundle inclusion.
+  - Hardened `src/lib/supabase/client.ts` with explicit security boundaries forbidding service role key ingestion and enforcing public anon key + RLS policies.
+  - Expanded Control 12 regression test harness in `src/lib/security/__tests__/appsec-20.test.ts` to statically assert no server secrets carry `NEXT_PUBLIC_` prefixes and client components do not access non-whitelisted environment variables.
+- **Dependency Supply Chain Vulnerability Remediation (`package.json`, `pnpm-workspace.yaml`)**:
+  - Upgraded Next.js and ESLint Next config from `15.1.7` / `15.5.28` to `15.5.29`, remediating three Next.js vulnerabilities: SVG rejection bypass in image optimization, HttpOnly cookie exposure header on Edge routes, and cross-client response injection.
+  - Enacted root workspace overrides in `pnpm-workspace.yaml`:
+    - `postcss: "^8.5.33"`: Remediated all 4 PostCSS path traversal and XSS advisories (`GHSA-6g55-p6wh-862q`, `GHSA-fxqj-rqcc-2cmp`, `GHSA-r28c-9q8g-f849`, `GHSA-qx2v-qp2m-jg93`).
+    - `tinypool: "^2.2.0"`: Completely eliminated 2 critical prototype pollution RCE vulnerabilities (`GHSA-5gmw-xhrv-c9v3`, `GHSA-92pr-2hrp-hp5g`).
+    - `@grpc/grpc-js: "^1.14.7"`: Remediated certificate validation and error message leakage advisories (`GHSA-pc58-hwjq-p385`, `GHSA-f596-whhp-79r4`).
+  - Achieved **0 critical**, **0 high**, and **0 low** vulnerabilities.
+  - Verified 116 passing tests across 18 test suites and clean production build.
+
+---
+
 ## [0.10.1] - 2026-11-22 — Resilient Serverless Audit Execution, Stateless Token Recovery, Real-Time Performance & Headless DOM Auditing
 
 ### Fixed & Hardened

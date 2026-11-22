@@ -275,6 +275,29 @@ describe("ReleaseLens 20-Point AppSec Hardening Regression Suite", () => {
         expect(code).not.toContain("NEXT_PUBLIC_FIREBASE_PRIVATE_KEY");
         expect(code).not.toContain("NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY");
         expect(code).not.toContain("NEXT_PUBLIC_GEMINI_API_KEY");
+        expect(code).not.toContain("NEXT_PUBLIC_GOOGLE_PAGESPEED_API_KEY");
+        expect(code).not.toContain("NEXT_PUBLIC_DATABASE_URL");
+        expect(code).not.toContain("NEXT_PUBLIC_FIREBASE_CLIENT_EMAIL");
+        expect(code).not.toContain("NEXT_PUBLIC_LLM_API_KEY");
+      }
+    });
+
+    it("verifies client components do not access non-public process.env variables", () => {
+      const appRoot = path.resolve(process.cwd(), "src/app");
+      const compRoot = path.resolve(process.cwd(), "src/components");
+      const checkDirs = [appRoot, compRoot];
+      for (const dir of checkDirs) {
+        const files = fs.readdirSync(dir, { recursive: true }) as string[];
+        for (const f of files) {
+          if (!f.endsWith(".tsx") && !f.endsWith(".ts")) continue;
+          if (f.includes("/api/") || f.startsWith("api/")) continue;
+          if (f.includes("__tests__") || f.includes(".test.")) continue;
+          const fullPath = path.join(dir, f);
+          const code = fs.readFileSync(fullPath, "utf-8");
+          // Match any process.env.<VAR> where VAR does NOT start with NEXT_PUBLIC_ or NODE_ENV
+          const matches = code.match(/process\.env\.(?!NEXT_PUBLIC_|NODE_ENV)[A-Z0-9_]+/g);
+          expect(matches).toBeNull();
+        }
       }
     });
   });

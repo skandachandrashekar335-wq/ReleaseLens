@@ -371,9 +371,34 @@ When running on serverless cloud platforms such as Vercel, requests to different
    - Replaced with an inline, dismissible Sentient-styled Audit Error Banner displaying precise HTTP status codes, structured error messages, and actionable troubleshooting guidance.
    - Introduced dynamic, step-by-step progress messaging during audit execution (`Probing HTTP/TLS & Security Headers (Tier 1)...` -> `Measuring Real-Time Latency & Core Web Vitals (Tier 2)...` -> `Inspecting DOM Semantics, WCAG Accessibility & Links (Tier 3)...` -> `Evaluating Release Gates & Tripartite RQI Score...`).
 
-4. **Real-Time Performance Fallback & Server-Side Headless DOM Auditing (Tiers 2 & 3)**:
-   - Upgraded `src/lib/engine/pagespeed-client.ts` from synthetic mocks to empirical real-time network and resource latency measurements (measured TTFB via `performance.now()`, total payload weight, download time, unoptimized images, render-blocking scripts).
-   - Upgraded `src/lib/engine/audit-runner.ts` Tier 3: when running in serverless environments without Playwright, executes full server-side Headless DOM and WCAG accessibility evaluation via `cheerio`, tags the run with `TIER_3_BROWSER`, and completes with status `COMPLETED` (zero "NOT RUN" dead ends).
+### Status
+`IMPLEMENTED` | `TESTED` | `EXPERIMENTALLY_VERIFIED`
+
+---
+
+## ADR-036: Frontend Environment Isolation, Next.js 15.5.29 Patching & Dependency Supply Chain Hardening
+
+### Context
+To maintain defense-in-depth across client-server boundaries, an audit of environment variables and third-party dependency vulnerabilities was conducted. The objectives were to:
+1. Guarantee that zero server-side secrets (`FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, `GOOGLE_PAGESPEED_API_KEY`, `DATABASE_URL`) are prefixed with `NEXT_PUBLIC_` or accessed within client components.
+2. Eliminate critical and high-severity supply chain vulnerabilities across dependencies flagged by `pnpm audit`.
+
+### Decision
+1. **Frontend Environment Isolation & Client Component Perimeter**:
+   - Audited all client components (`"use client"`) in `src/app/` and `src/components/`, verifying that zero client components reference `process.env` directly.
+   - Client code only interfaces with Google Firebase public client initialization (`NEXT_PUBLIC_FIREBASE_*`), which are standard public client identifiers; all authentication verification and token exchange occur server-side.
+   - Documented and restricted `src/lib/supabase/client.ts` to strictly require public anon keys with PostgreSQL Row Level Security (RLS) and forbid service role keys.
+   - Expanded automated test harness in `src/lib/security/__tests__/appsec-20.test.ts` (Control 12) with automated AST/regex file scanning ensuring:
+     - No server-side secrets ever use `NEXT_PUBLIC_` in source code.
+     - No client component in `src/app/` (outside `/api/`) or `src/components/` references `process.env` variables other than `NODE_ENV` or `NEXT_PUBLIC_`.
+
+2. **Supply Chain Vulnerability Remediation**:
+   - Upgraded `next` and `eslint-config-next` to `15.5.29`, remediating three Next.js vulnerabilities: SVG rejection bypass in image optimization, HttpOnly cookie exposure header on Edge routes, and cross-client response injection.
+   - Enacted root workspace overrides in `pnpm-workspace.yaml`:
+     - `postcss: "^8.5.33"`: Remediates all 4 PostCSS path traversal and XSS advisories (`GHSA-6g55-p6wh-862q`, `GHSA-fxqj-rqcc-2cmp`, `GHSA-r28c-9q8g-f849`, `GHSA-qx2v-qp2m-jg93`).
+     - `tinypool: "^2.2.0"`: Completely eliminates 2 critical prototype pollution RCE vulnerabilities (`GHSA-5gmw-xhrv-c9v3`, `GHSA-92pr-2hrp-hp5g`).
+     - `@grpc/grpc-js: "^1.14.7"`: Remediates certificate validation and error message leakage advisories (`GHSA-pc58-hwjq-p385`, `GHSA-f596-whhp-79r4`).
+   - Achieved **0 critical**, **0 high**, and **0 low** vulnerabilities. Only 5 non-runtime dev/test-tooling moderate advisories remain in devDependencies.
 
 ### Status
 `IMPLEMENTED` | `TESTED` | `EXPERIMENTALLY_VERIFIED`
