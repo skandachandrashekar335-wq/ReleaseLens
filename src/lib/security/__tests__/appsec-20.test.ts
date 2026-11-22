@@ -366,7 +366,7 @@ describe("ReleaseLens 20-Point AppSec Hardening Regression Suite", () => {
         user: "qa_engineer",
         authorization: "Bearer eyJhbGciOiJIUzI1NiIsIn...",
         cookie: "releaselens_session=rl_sess_12345",
-        apiKey: "AIzaSyDummySecretKeyForTest123456789",
+        apiKey: "test_dummy_api_key_redact_probe_123",
         password: "SuperSecretPassword123!",
         nested: {
           token: "secret_token_val",

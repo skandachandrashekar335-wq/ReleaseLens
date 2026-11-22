@@ -132,8 +132,16 @@ export async function POST(req: Request) {
       { status: 200 }
     );
 
-    // Set secure HTTP-only cookie
+    // Set secure HTTP-only cookies
     response.cookies.set(SESSION_COOKIE_NAME, session.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 86400 * 14,
+      path: "/",
+    });
+
+    response.cookies.set("releaselens_id_token", idToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -166,6 +174,7 @@ export async function DELETE(req: Request) {
     });
 
     response.cookies.delete(SESSION_COOKIE_NAME);
+    response.cookies.delete("releaselens_id_token");
     return response;
   } catch (err: any) {
     safeLogger.error("Session DELETE error", err);

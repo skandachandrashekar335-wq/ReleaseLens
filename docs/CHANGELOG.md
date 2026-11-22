@@ -4,6 +4,36 @@ All notable changes to the ReleaseLens project are documented in this file in ad
 
 ---
 
+## [0.10.1] - 2026-11-22 — Resilient Serverless Audit Execution, Stateless Token Recovery, Real-Time Performance & Headless DOM Auditing
+
+### Fixed & Hardened
+- **Resilient Serverless Session Recovery (`src/lib/auth/session.ts` & `src/app/api/auth/session/route.ts`)**:
+  - Implemented dual-cookie architecture storing cryptographic Firebase ID token in `releaselens_id_token` alongside `releaselens_session`.
+  - Added stateless recovery fallback: if an ephemeral SQLite container misses the session record on cold-start, the handler transparently verifies the candidate token, auto-hydrates the tenant user in memory, and preserves authenticated status.
+  - Updated `POST /api/auth/logout` and `DELETE /api/auth/session` to invalidate and purge both cookies cleanly.
+- **Serverless Project Auto-Hydration (`src/app/api/projects/[id]/audit/route.ts`)**:
+  - Upgraded audit execution endpoint to accept optional `{ name, targetUrl, environment }` payload.
+  - Automatically reconstructs project record in memory on isolated serverless lambdas, eliminating `404 Project not found` during cross-instance requests.
+  - Configured `export const maxDuration = 60;` to prevent Vercel 15s function timeout termination.
+- **Graceful Null-Safe Returns (`src/app/api/bugs/route.ts` & `src/app/api/findings/route.ts`)**:
+  - If project record is temporarily absent in a cold local instance, authenticated requests return empty arrays (`200 OK`) instead of failing with `404`, keeping the UI fully intact.
+- **CSRF Origin Normalization (`src/lib/security/csrf.ts`)**:
+  - Added `*.vercel.app` pattern to allowlist.
+  - Normalized multi-value `x-forwarded-host` headers by taking the first proxy entry.
+- **Content Security Policy Font Fix (`next.config.ts`)**:
+  - Added `https://fonts.googleapis.com` to `style-src` and `https://fonts.gstatic.com` to `font-src`, eliminating stylesheet blocking in production.
+- **Inline Sentient Audit Error Banner & Real-Time Progress UI (`src/app/projects/[id]/page.tsx`)**:
+  - Completely eliminated `window.alert()` from the client UI.
+  - Added inline, dismissible Sentient-styled Audit Error Banner displaying precise HTTP status codes, structured error messages, and actionable troubleshooting guidance.
+  - Added real-time step-by-step progress indicator informing users during audit execution.
+- **Real-Time Performance Engine Fallback (`src/lib/engine/pagespeed-client.ts`)**:
+  - Upgraded fallback check from "Synthetic Core Web Vitals" to "Real-Time Performance & Core Web Vitals".
+  - Measures live target TTFB via `performance.now()`, total payload transfer time, payload weight, unoptimized images, and render-blocking scripts.
+- **Server-Side Headless DOM & WCAG Accessibility Auditing (`src/lib/engine/audit-runner.ts`)**:
+  - Upgraded Tier 3: when serverless or container workers are absent, executes full server-side Headless DOM and WCAG accessibility evaluation via `cheerio`, tags the run with `TIER_3_BROWSER`, and completes with status `COMPLETED` (zero "NOT RUN" dead ends).
+
+---
+
 ## [0.10.0] - 2026-11-21 — 20-Point AppSec Hardening, Strict Zod Validation, Origin Verification & Active Scanner Probes
 
 ### Added & Hardened

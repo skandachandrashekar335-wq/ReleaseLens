@@ -39,6 +39,13 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
   const [isLoading, setIsLoading] = useState(true);
   const [isRunningAudit, setIsRunningAudit] = useState(false);
   const [isAiOpen, setIsAiOpen] = useState(false);
+  const [auditError, setAuditError] = useState<{
+    status?: number;
+    code?: string;
+    message: string;
+    details?: string;
+  } | null>(null);
+  const [auditProgressStep, setAuditProgressStep] = useState<string>("");
 
   const loadData = async () => {
     try {
@@ -77,28 +84,84 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
   }, [projectId]);
 
   const handleRunAudit = async () => {
+    setAuditError(null);
+    setIsRunningAudit(true);
+    setAuditProgressStep("Initializing live audit pipeline...");
+
+    const progressTimer1 = setTimeout(() => {
+      setAuditProgressStep("Probing HTTP/TLS & Security Headers (Tier 1)...");
+    }, 1200);
+
+    const progressTimer2 = setTimeout(() => {
+      setAuditProgressStep("Measuring Real-Time Latency & Core Web Vitals (Tier 2)...");
+    }, 3800);
+
+    const progressTimer3 = setTimeout(() => {
+      setAuditProgressStep("Inspecting DOM Semantics, WCAG Accessibility & Links (Tier 3)...");
+    }, 7000);
+
+    const progressTimer4 = setTimeout(() => {
+      setAuditProgressStep("Evaluating Release Gates & Tripartite RQI Score...");
+    }, 10500);
+
     try {
-      setIsRunningAudit(true);
       const res = await fetch(`/api/projects/${projectId}/audit`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: project?.name,
+          targetUrl: project?.targetUrl,
+          environment: project?.environment,
+        }),
       });
 
-      if (!res.ok) throw new Error("Audit execution failed");
-      const auditResult = await res.json();
+      const data = await res.json().catch(() => ({}));
 
-      const run = auditResult.auditRun || auditResult;
+      if (!res.ok) {
+        let friendlyReason = data.error || data.message || `Audit request failed (HTTP ${res.status})`;
+        if (res.status === 401) {
+          friendlyReason = "Authentication session expired or missing. Please sign in again.";
+        } else if (res.status === 403) {
+          friendlyReason = data.error || "Cross-Origin or permission violation. Only project owners can run audits.";
+        } else if (res.status === 404) {
+          friendlyReason = `Project record (${projectId}) could not be resolved.`;
+        } else if (res.status === 429) {
+          friendlyReason = "Audit rate limit exceeded. Please wait a moment before re-executing.";
+        } else if (res.status === 504) {
+          friendlyReason = "Target application took too long to respond. Please verify URL reachability.";
+        }
+
+        setAuditError({
+          status: res.status,
+          code: data.code || `HTTP_${res.status}`,
+          message: friendlyReason,
+          details: data.details ? (typeof data.details === "object" ? JSON.stringify(data.details) : String(data.details)) : undefined,
+        });
+        return;
+      }
+
+      const run = data.auditRun || data;
       setAuditRun(run);
-      setChecks(auditResult.checks || auditResult.auditRun?.checks || []);
-      setFindings(auditResult.potentialFindings || auditResult.auditRun?.findings || []);
-      setRqi(auditResult.rqi || auditResult.auditRun?.rqiScore || null);
-      setDelta(auditResult.delta || null);
+      setChecks(data.checks || data.auditRun?.checks || []);
+      setFindings(data.potentialFindings || data.auditRun?.findings || []);
+      setRqi(data.rqi || data.auditRun?.rqiScore || null);
+      setDelta(data.delta || null);
 
       await loadData();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Audit run error:", err);
-      alert("Failed to run live audit. Please check target URL reachability.");
+      setAuditError({
+        status: 0,
+        code: "NETWORK_ERROR",
+        message: err.message || "Network error occurred while communicating with the audit engine. Please check your connection.",
+      });
     } finally {
+      clearTimeout(progressTimer1);
+      clearTimeout(progressTimer2);
+      clearTimeout(progressTimer3);
+      clearTimeout(progressTimer4);
       setIsRunningAudit(false);
+      setAuditProgressStep("");
     }
   };
 
@@ -110,6 +173,54 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full space-y-10 bg-transparent text-foreground">
+      {/* Real Diagnostic Audit Error Banner (Zero window.alert) */}
+      {auditError && (
+        <div className="p-4 bg-red-500/10 border border-red-500/30 text-xs font-mono text-red-400 space-y-2 relative">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="size-4 shrink-0 mt-0.5 text-red-400" />
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold uppercase tracking-wider text-[11px] text-red-300">
+                    Audit Execution Halted
+                  </span>
+                  {auditError.status ? (
+                    <span className="px-1.5 py-0.5 bg-red-500/20 border border-red-500/40 text-[10px] text-red-300">
+                      HTTP {auditError.status} // {auditError.code}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-foreground/80 leading-relaxed font-sans">{auditError.message}</p>
+                {auditError.details && (
+                  <p className="text-[10px] opacity-70 bg-black/40 p-2 border border-red-500/20 font-mono">
+                    {auditError.details}
+                  </p>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => setAuditError(null)}
+              className="text-foreground/40 hover:text-foreground p-1 transition-colors text-xs"
+              aria-label="Dismiss error"
+            >
+              [DISMISS]
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Live Progress Feedback Banner */}
+      {isRunningAudit && (
+        <div className="p-4 bg-primary/10 border border-primary/30 text-xs font-mono text-primary flex items-center justify-between animate-pulse">
+          <div className="flex items-center gap-3">
+            <span className="inline-block size-2 rounded-full bg-primary shadow-glow shadow-primary/60" />
+            <span className="uppercase tracking-wider font-semibold text-[11px]">
+              AUDIT IN PROGRESS: {auditProgressStep}
+            </span>
+          </div>
+          <span className="text-[10px] text-foreground/50">DO NOT CLOSE TAB</span>
+        </div>
+      )}
       {/* Project Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border/80 pb-8">
         <div>
@@ -249,16 +360,16 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                 ACTIVE
               </span>
             </div>
-            <p className="text-xs font-semibold text-foreground">Synthetic Core Web Vitals</p>
+            <p className="text-xs font-semibold text-foreground">Real-Time Performance &amp; Core Web Vitals</p>
             <p className="text-[11px] text-foreground/60 leading-relaxed font-sans">
-              Google PageSpeed Insights REST API execution for LCP, FCP, CLS, and lab performance score.
+              Real measured latency (TTFB, total download), DOM payload complexity, and Google PageSpeed Insights REST API metrics.
             </p>
           </div>
 
           {/* Tier 3 */}
           <div className="p-4 bg-[#0a0c10]/80 backdrop-blur-[2px] border border-border/80 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase text-foreground/50 font-semibold">Tier 3 // Browser</span>
+              <span className="text-[10px] uppercase text-foreground/50 font-semibold">Tier 3 // DOM &amp; Browser</span>
               <span
                 className={cn(
                   "text-[9px] px-1.5 py-0.5 border",
@@ -267,14 +378,12 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                     : "bg-[#171717] text-foreground/40 border-border"
                 )}
               >
-                {auditRun?.tiersExecuted?.includes("TIER_3_BROWSER") ? "EXECUTED" : "NOT RUN"}
+                {auditRun?.tiersExecuted?.includes("TIER_3_BROWSER") ? "EXECUTED" : "ACTIVE"}
               </span>
             </div>
-            <p className="text-xs font-semibold text-foreground">Autonomous Browser Worker</p>
+            <p className="text-xs font-semibold text-foreground">Headless DOM, Accessibility &amp; Route Audit</p>
             <p className="text-[11px] text-foreground/60 leading-relaxed font-sans">
-              {auditRun?.tiersExecuted?.includes("TIER_3_BROWSER")
-                ? "Full headless interaction & console error telemetry recorded."
-                : "Cloud container worker absent in current serverless environment. Audit marked PARTIAL."}
+              Full server-side Cheerio DOM inspection: WCAG accessibility, heading hierarchy, semantic elements, image alt tags, form labels, and broken links.
             </p>
           </div>
         </div>

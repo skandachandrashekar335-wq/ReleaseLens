@@ -68,12 +68,15 @@ export async function getAuthSession(): Promise<AuthContext> {
   }
 
   // 3. Try reading from cookie
+  let idTokenCookie: string | null = null;
   try {
     const cookieStore = await cookies();
     sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value || null;
+    idTokenCookie = cookieStore.get("releaselens_id_token")?.value || null;
   } catch {}
 
-  if (!sessionToken) {
+  const candidateToken = sessionToken || idTokenCookie;
+  if (!candidateToken) {
     return {
       user: null,
       sessionToken: null,
@@ -81,20 +84,57 @@ export async function getAuthSession(): Promise<AuthContext> {
     };
   }
 
-  const session = await db.getSession(sessionToken);
-  if (!session) {
-    return {
-      user: null,
-      sessionToken: null,
-      isAuthenticated: false,
-    };
+  // First try resolving from persistent session store
+  if (sessionToken) {
+    const session = await db.getSession(sessionToken);
+    if (session) {
+      const user = await db.getUser(session.userId);
+      if (user) {
+        return {
+          user,
+          sessionToken: session.token,
+          isAuthenticated: true,
+        };
+      }
+    }
   }
 
-  const user = await db.getUser(session.userId);
+  // Fallback for serverless cold starts: cryptographically verify Firebase ID token
+  const tokenToVerify = idTokenCookie || sessionToken;
+  if (tokenToVerify) {
+    try {
+      if (isFirebaseAdminConfigured() || process.env.NODE_ENV === "test") {
+        const decoded = await verifyFirebaseIdToken(tokenToVerify);
+        if (decoded && decoded.uid) {
+          let user = await db.getUser(decoded.uid);
+          if (!user && decoded.email) {
+            user = await db.getUserByEmail(decoded.email);
+          }
+          if (!user) {
+            user = await db.createUser({
+              id: decoded.uid,
+              email: decoded.email || `${decoded.uid}@firebase.user`,
+              name: decoded.name || decoded.email?.split("@")[0] || "QA Engineer",
+              avatarUrl: decoded.picture || undefined,
+              role: "qa_engineer",
+            });
+          }
+          return {
+            user,
+            sessionToken: tokenToVerify,
+            isAuthenticated: true,
+          };
+        }
+      }
+    } catch {
+      // Token verification failed or expired
+    }
+  }
+
   return {
-    user,
-    sessionToken: session.token,
-    isAuthenticated: !!user,
+    user: null,
+    sessionToken: null,
+    isAuthenticated: false,
   };
 }
 

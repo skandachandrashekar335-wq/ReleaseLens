@@ -7,7 +7,7 @@ import { checkRateLimit, createRateLimitResponse, getClientIp } from "@/lib/secu
 import { guardCsrf } from "@/lib/security/csrf";
 import { safeLogger } from "@/lib/security/logger";
 
-export const maxDuration = 15;
+export const maxDuration = 60;
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -31,9 +31,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return createRateLimitResponse(rateCheck);
     }
 
-    const project = await db.getProject(id);
+    const body = await req.json().catch(() => ({}));
+
+    let project = await db.getProject(id);
+    // Serverless auto-hydration if project metadata is supplied in audit payload
+    if (!project && body?.targetUrl) {
+      try {
+        project = await db.createProject({
+          id,
+          userId: auth.user.id,
+          name: body.name || "Target Application",
+          targetUrl: body.targetUrl,
+          environment: body.environment || "PREVIEW",
+        } as any);
+      } catch {}
+    }
+
     if (!project) {
-      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+      return NextResponse.json({ error: `Project '${id}' not found in database session.`, code: "PROJECT_NOT_FOUND" }, { status: 404 });
     }
 
     // Audits can only be executed by the verified project owner

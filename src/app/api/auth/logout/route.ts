@@ -14,9 +14,18 @@ async function handleLogout() {
       { status: 200 }
     );
 
-    // Delete session cookie across all environments
+    // Delete session cookies across all environments
     response.cookies.delete(SESSION_COOKIE_NAME);
     response.cookies.set(SESSION_COOKIE_NAME, "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 0,
+      expires: new Date(0),
+      path: "/",
+    });
+    response.cookies.delete("releaselens_id_token");
+    response.cookies.set("releaselens_id_token", "", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

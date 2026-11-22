@@ -14,6 +14,7 @@ const ALLOWED_HOSTNAME_PATTERNS = [
   /^releaselens-psi\.vercel\.app$/,
   /^releaselens\.dev$/,
   /^.*\.releaselens\.dev$/,
+  /^.*\.vercel\.app$/,
   /^.*-skandachandrashekar335-wqs-projects\.vercel\.app$/,
 ];
 
@@ -75,11 +76,13 @@ export function validateCsrfOrigin(req: Request): CsrfValidationResult {
   }
 
   // Check matching Host / X-Forwarded-Host header (same-origin)
-  const reqHost = (
+  const rawReqHost = (
     req.headers.get("x-forwarded-host") ||
     req.headers.get("host") ||
     ""
   ).toLowerCase();
+
+  const reqHost = rawReqHost.split(",")[0].trim().toLowerCase();
 
   if (reqHost && (originHost === reqHost || reqHost.startsWith(`${originHost}:`))) {
     return { valid: true, origin: targetOrigin };

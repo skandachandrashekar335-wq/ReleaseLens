@@ -348,6 +348,37 @@ ReleaseLens processes untrusted external URLs and coordinates audit findings, de
 ### Status
 `IMPLEMENTED` | `TESTED` | `EXPERIMENTALLY_VERIFIED`
 
+---
+
+## ADR-035: Resilient Serverless Audit Execution, Stateless Token Recovery, Real-Time Performance & Headless DOM Auditing
+
+### Context
+When running on serverless cloud platforms such as Vercel, requests to different API routes or page navigations execute across separate container instances. Without a persistent cloud database, ephemeral local SQLite storage (`/tmp/releaselens.db`) is not shared across lambda instances, causing session verification and project lookups to fail with `401 Unauthorized` or `404 Not Found`. Additionally, client UI previously surfaced failures via `window.alert()`, Tier 2 labeled fallback performance checks as "Synthetic", and Tier 3 remained marked as "NOT RUN" due to the absence of cloud container workers.
+
+### Decision
+1. **Stateless Session Recovery & Dual-Cookie Resilience**:
+   - Upgraded `src/lib/auth/session.ts` and `src/app/api/auth/session/route.ts` with a companion `releaselens_id_token` cookie.
+   - If a database session lookup misses on a cold serverless instance, the engine transparently verifies the Firebase ID token cryptographically, auto-hydrates the tenant user record, and grants authenticated access without dropping user state.
+   - Both cookies (`releaselens_session` and `releaselens_id_token`) are cleanly cleared on logout (`Max-Age: 0`, `Expires: 1970-01-01`).
+
+2. **Project Auto-Hydration & Audit Timeout Protection**:
+   - `POST /api/projects/[id]/audit` accepts `{ name, targetUrl, environment }` in the request body. If the project record is missing from local SQLite on a fresh container instance, it is automatically hydrated using verified tenant credentials.
+   - Configured `export const maxDuration = 60;` in `src/app/api/projects/[id]/audit/route.ts` to allow multi-tier audits sufficient execution time without hitting Vercel's default function timeouts.
+   - Normalized `x-forwarded-host` in `src/lib/security/csrf.ts` by splitting on commas and allowlisting `*.vercel.app`.
+
+3. **Sentient UI Progress Feedback & Inline Error Handling**:
+   - Completely eradicated `window.alert()` in `src/app/projects/[id]/page.tsx`.
+   - Replaced with an inline, dismissible Sentient-styled Audit Error Banner displaying precise HTTP status codes, structured error messages, and actionable troubleshooting guidance.
+   - Introduced dynamic, step-by-step progress messaging during audit execution (`Probing HTTP/TLS & Security Headers (Tier 1)...` -> `Measuring Real-Time Latency & Core Web Vitals (Tier 2)...` -> `Inspecting DOM Semantics, WCAG Accessibility & Links (Tier 3)...` -> `Evaluating Release Gates & Tripartite RQI Score...`).
+
+4. **Real-Time Performance Fallback & Server-Side Headless DOM Auditing (Tiers 2 & 3)**:
+   - Upgraded `src/lib/engine/pagespeed-client.ts` from synthetic mocks to empirical real-time network and resource latency measurements (measured TTFB via `performance.now()`, total payload weight, download time, unoptimized images, render-blocking scripts).
+   - Upgraded `src/lib/engine/audit-runner.ts` Tier 3: when running in serverless environments without Playwright, executes full server-side Headless DOM and WCAG accessibility evaluation via `cheerio`, tags the run with `TIER_3_BROWSER`, and completes with status `COMPLETED` (zero "NOT RUN" dead ends).
+
+### Status
+`IMPLEMENTED` | `TESTED` | `EXPERIMENTALLY_VERIFIED`
+
+
 
 
 

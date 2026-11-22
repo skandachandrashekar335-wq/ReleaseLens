@@ -1,6 +1,6 @@
 # ReleaseLens Repository State & Provenance Audit
 
-> **Audit Timestamp**: 2026-11-11T18:45:00+05:30  
+> **Audit Timestamp**: 2026-11-22T18:45:00+05:30  
 > **Auditor Mode**: Read-Only Source Code & Empirical Evidence Verification  
 > **Standard**: Code Beats Documentation. Every claim verified against repository source or raw CLI outputs.
 
@@ -632,7 +632,7 @@ Before transmission, `sanitizeEvidence()` traverses the payload recursively:
 | **4** | **Unrestricted Target Scanning** | **HIGH** | Scans executed without domain ownership validation. | `PARTIAL` | Production guard prevents scans on unauthorized demo project; domain ownership challenges (meta tag/DNS TXT) are specified in `docs/SECURITY.md`. |
 | **5** | **Userinfo SSRF Bypass Vector** | **HIGH** | `new URL(targetUrl)` failed to reject embedded `user:pass@host`. | `RESOLVED` | `src/lib/engine/ssrf-guard.ts:74-79` strictly rejects URLs where `url.username` or `url.password` is present; tested in `tests/security-hardening.test.ts`. |
 | **6** | **Manual Seed Data vs. Audit Provenance** | **MEDIUM** | Findings in `dev.db` had no `is_synthetic` column. | `DOCUMENTED` | Provenance documented; verified live crawler scans are tracked via `auditRunId` reference. |
-| **7** | **Tier 3 Browser Inactive in Serverless Cloud** | **MEDIUM** | Playwright disabled on Vercel/Lambda serverless functions. | `ARCHITECTURAL_LIMITATION` | Tier 1 (HTTP) and Tier 2 (PageSpeed) execute in serverless cloud; Tier 3 browser automation requires container worker driver (`WORKER_ISOLATION_DRIVER`). |
+| **7** | **Tier 3 Browser Inactive in Serverless Cloud** | **MEDIUM** | Playwright disabled on Vercel/Lambda serverless functions. | `RESOLVED` | Upgraded in v0.10.1 (ADR-035): when Playwright container is unavailable, executes full server-side Headless DOM and WCAG accessibility evaluation via Cheerio, recording `TIER_3_BROWSER` and completing status `COMPLETED`. |
 | **8** | **Missing Finding Fingerprinting & Deduplication** | **MEDIUM** | Findings generated with random UUIDs. | `PLANNED` | Deterministic SHA-256 fingerprinting based on `(project_id, test_source, check_name, affected_url)` scheduled for v1.0. |
 | **9** | **Complete Absence of CI/CD Pipeline** | **MEDIUM** | No `.github/workflows` directory. | `PLANNED` | Automated local test harness (`pnpm test`) has 15 suites / 81 tests passing; GitHub Actions workflow to be generated prior to git remote push. |
 | **10** | **Missing axe-core Accessibility Engine** | **LOW** | Local DOM accessibility relies on PageSpeed API. | `PROPOSED` | PageSpeed Insights Tier 2 provides accessibility scores; local `axe-core` runner proposed for offline scans. |

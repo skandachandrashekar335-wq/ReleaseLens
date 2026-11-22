@@ -1,3 +1,5 @@
 # Gitleaks ignore file
 # False positive in historical commit for placeholder template in .env.example
 41578a4815592dfcf134095d1fa870671a858611:.env.example:private-key:35
+# False positive in historical commit for dummy test fixture in appsec-20 test
+64756ac18bcd2170316d78f467c272df4bd492fa:src/lib/security/__tests__/appsec-20.test.ts:generic-api-key:369

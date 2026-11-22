@@ -10,14 +10,16 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "projectId query param is required" }, { status: 400 });
     }
 
-    const project = await db.getProject(projectId);
-    if (!project) {
-      return NextResponse.json({ error: "Project not found" }, { status: 404 });
-    }
-
     const auth = await getAuthSession();
     if (!auth.user || !auth.isAuthenticated) {
       return NextResponse.json({ error: "Unauthorized: Valid session required" }, { status: 401 });
+    }
+
+    const project = await db.getProject(projectId);
+    if (!project) {
+      return NextResponse.json([], {
+        headers: { "X-Total-Count": "0" },
+      });
     }
     if (project.userId !== auth.user.id) {
       return NextResponse.json({ error: "Forbidden: Tenant isolation violation." }, { status: 403 });
